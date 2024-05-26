@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "cpu",
+    "iced",
+    "harte",
+    "apple2",
+    "tools"
+]
+resolver = "2"

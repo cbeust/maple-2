@@ -1,0 +1,15 @@
+[package]
+name = "iced"
+version = "0.1.0"
+edition = "2021"
+publish = false
+default-run = "iced"
+
+[dependencies]
+cpu = { path = "../cpu" }
+
+iced = { git = "https://github.com/iced-rs/iced/", features = ["canvas", "tokio", "debug", ] }
+time = { version = "0.3.5", features = ["local-offset"] }
+rand = "0.8.5"
+#web-sys = "0.3.58"
+#iced_wgpu = { version = "0.5.1", features = ["webgl"] }

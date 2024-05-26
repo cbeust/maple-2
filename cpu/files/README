@@ -1,0 +1,5 @@
+This program should take exactly 1141 cycles.
+
+(note: there might need to be a JMP $1000 at $000.
+
+http://forum.6502.org/viewtopic.php?f=8&t=3340
