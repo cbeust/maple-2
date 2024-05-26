@@ -21,14 +21,6 @@
 
 # Introduction
 
-```
-00037900| 35DF: A5 0D      LDA $0D       A=50 X=0E Y=FF S=FC P=$70 {-V-B----} SP={$FC stack:[ FF=33 FE=2A FD=72 ]}}
-00037903| 35E1: 6D 03 02   ADC $203      A=50 X=0E Y=FF S=FC P=$30 {---B----} SP={$FC stack:[ FF=33 FE=2A FD=72 ]}}
-00037907| 35E4: 08         PHP           A=50 X=0E Y=FF S=FB P=$30 {---B----} SP={$FB stack:[ FF=33 FE=2A FD=72 FC=30 ]}}
-0003790A| 35E5: C5 0F      CMP $0F       A=50 X=0E Y=FF S=FB P=$33 {---B--ZC} SP={$FB stack:[ FF=33 FE=2A FD=72 FC=30 ]}}
-0003790D| 35E7: D0 FE      BNE $35E7     A=50 X=0E Y=FF S=FB P=$33 {---B--ZC} SP={$FB stack:[ FF=33 FE=2A FD=72 FC=30 ]}}
-```
-
 Maple // is an Apple ][ emulator written in Rust. It was initially inspired by [my Kotlin Apple \]\[ emulator](https://github.com/cbeust/sixty) but
 diverged quite a bit after a while and by now, it supports a lot of additional features (double hi resolution, write, etc...).
 
@@ -72,7 +64,17 @@ cd harte
 cargo run --release
 ```
 
+https://github.com/cbeust/maple-2/assets/92322/222a2172-738c-4e7e-b018-d87efbc360d0
+
 ## Gallery
+
+<p align="center">
+  <img src="https://github.com/cbeust/maple-2/assets/92322/019a2eb5-e526-4825-a14c-843cd1634aa1">
+  <br>
+  <b>Text mode (40 columns)</b>
+</p>
+
+
 
 ## Resources
 
