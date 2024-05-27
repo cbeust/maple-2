@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/cbeust/sixty.rs/assets/92322/583fc44c-ca6c-4a27-a272-4c0febdada18" width="400"/>
+  <img src="pics/logo.png" width="400"/>
 </p>
 
 <p align="center">
