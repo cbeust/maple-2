@@ -39,6 +39,33 @@ When you launch `Maple //` for the first time, you will have to select a folder 
 (.woz and .dsk). This directory will be read recursively. After this, select the disks of your choice, place them in
 the drive 1 or 2, and press the `Reboot` button.
 
+### Views
+
+#### Disks
+
+Once you have selected a directory, all the disks found in that directory and below will be displayed in that window.
+Just press "Drive 1" or "Drive 2" to insert that disk in the drive. You can use the filtering box on the side
+to narrow down the disk you're looking for.
+
+#### Memory
+
+This view presents the memory along with various convenient shortcuts to memory banks (e.g. Text, Text Aux, ...).
+
+#### Nibbles
+
+This view shows you what was found on the disk. It's made of two parts:
+
+- At the top, the map of all the tracks (quarter tracks really) shown either in green (standard track) or yellow
+  (non-standard track, most likely protected). A "." indicates an empty track (will return random bits). You
+  can click on any of these tracks to take a look at its nibbles
+- Below is the actual buffer of bits, corrected to show you nibbles. `Maple //` will attempt to locate the
+  markers for address and data in order to facilitate identifying where these tracks start. This will only
+  produce highlighted results for standard markers (`D5 AA 96` / `DE AA` and `D5 AA AD`/`DE AA`).
+
+### Floppy disk
+
+This view shows you where the track is at it moves across the disk.
+
 ## Tests
 
 `cargo test` will run [Klaus' functional suite for the 6502](https://github.com/Klaus2m5/6502_65C02_functional_tests), which guarantees that the emulation is "mostly"
