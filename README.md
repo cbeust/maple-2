@@ -85,7 +85,10 @@ cd harte
 cargo run --release
 ```
 
-https://github.com/cbeust/maple-2/assets/92322/222a2172-738c-4e7e-b018-d87efbc360d0
+
+<p align="center">
+  <img src="https://github.com/cbeust/sixty.rs/assets/92322/8b5f66ce-44bd-4d1d-ac94-390f13a27938">
+</p>
 
 ## Developer note
 
