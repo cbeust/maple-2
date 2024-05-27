@@ -20,10 +20,6 @@ diverged quite a bit after a while and by now, it supports a lot of additional f
 
 Maple // has a specific focus on being developer friendly by exposing a lot of internal details on the emulation, e.g.
 
-
-```
-```
-
 - A convenient file picker view that lets you quickly insert disks in the drives of your choice
 - A Nibble view that shows you the raw nibbles contained on the current track
 - A track map showing you which tracks are standard (green dot) and non standard (yellow dot)
@@ -31,8 +27,11 @@ Maple // has a specific focus on being developer friendly by exposing a lot of i
 - A debugger (very much a work in progress)
 
 ## Building and running
+
+```
 $ cd apple2
 $ cargo run -r
+```
 
 ## Documentation
 
@@ -67,9 +66,7 @@ I made the graphical back-end as agnostic as I could since there are so many Rus
 pixels on the screen, and as a proof of concept, I experimented with two different graphical backends: `egui` (which
 is the current `Maple //` GUI/graphics library) and `minifb`). Here is what the experiment looks like:
 
-<p align="center">
-  <img src="pics/emulator-minifb.mp4"/>
-</p>
+https://github.com/cbeust/sixty.rs/assets/92322/499b9f47-600c-4ce7-85b7-c373e18b427e
 
 ## Gallery
 <table>
