@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/cbeust/sixty.rs/assets/92322/583fc44c-ca6c-4a27-a272-4c0febdada18" width="400"/>
+  <img src="pics/logo.png" width="400"/>
 </p>
 
 <p align="center">
@@ -85,10 +85,7 @@ cd harte
 cargo run --release
 ```
 
-
-<p align="center">
-  <img src="https://github.com/cbeust/sixty.rs/assets/92322/8b5f66ce-44bd-4d1d-ac94-390f13a27938">
-</p>
+https://github.com/cbeust/maple-2/assets/92322/f75270b3-b438-41ff-869f-d32c952a79a6
 
 ## Developer note
 
