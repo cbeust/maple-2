@@ -143,10 +143,7 @@ lazy_static! {
         "F-15".to_string(), // F-15 Strike Eagle
     ];
 
-    pub static ref DEFAULT_DISKS_DIRECTORIES: Vec<String> = vec![
-        "D:\\Apple Disks".to_string(),
-        "C:\\Users\\Ced\\kotlin\\sixty\\disks".to_string(),
-    ];
+    pub static ref DEFAULT_DISKS_DIRECTORIES: Vec<String> = vec![];
 
     pub static ref DISKS_SUFFIXES: [String; 2] = [ "woz".to_string(), "dsk".to_string() ];
 
