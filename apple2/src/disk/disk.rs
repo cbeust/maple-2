@@ -69,7 +69,7 @@ impl Disk {
                 Err(s) => { Err(s) }
             }
         } else if path.to_lowercase().ends_with(".dsk") {
-            match Dsk::new_with_file(path) {
+            match Dsk::new_with_file(path, quick) {
                 Ok(p) => { Ok(Box::new(p) ) }
                 Err(s) => { Err(s) }
             }

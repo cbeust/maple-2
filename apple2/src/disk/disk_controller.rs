@@ -129,11 +129,10 @@ impl DiskController {
     }
 
     pub fn load_disk_new(path: &str, sender: Option<Sender<ToUi>>) -> Result<Disk, String> {
-        Disk::new(path, false /* read bit_streams */, sender)
+        Disk::new(path, true /* don't read bit_streams */, sender)
     }
 
     pub(crate) fn load_disk_from_file(&mut self, drive_number: usize, disk_info: DiskInfo) {
-        println!("load_disk_from_file sender {:#?}", self.sender);
         if DiskController::file_to_bytes(drive_number, &disk_info, &self.sender).is_some() {
             match Disk::new(&disk_info.path, false /* read bit_streams */, self.sender.clone()) {
                 Ok(disk) => {

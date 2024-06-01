@@ -33,11 +33,18 @@ impl PDisk for Dsk {
 }
 
 impl Dsk {
-    pub fn new_with_file(filename: &str) -> Result<Dsk, String> {
-        let mut file = File::open(filename).unwrap();
-        let mut buffer: Vec<u8> = Vec::new();
-        file.read_to_end(&mut buffer).unwrap();
-        Dsk::bytes_to_bit_streams(filename, &buffer)
+    pub fn new_with_file(filename: &str, quick: bool) -> Result<Dsk, String> {
+        if quick {
+            Ok(Dsk {
+                disk_info: DiskInfo::n(filename),
+                bit_streams: Default::default(),
+            })
+        } else {
+            let mut file = File::open(filename).unwrap();
+            let mut buffer: Vec<u8> = Vec::new();
+            file.read_to_end(&mut buffer).unwrap();
+            Dsk::bytes_to_bit_streams(filename, &buffer)
+        }
     }
 
     /// For the .dsk format, we use the same TMAP in default woz disks:
