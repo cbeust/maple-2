@@ -1,4 +1,5 @@
 use std::collections::{VecDeque};
+use std::fs::{DirEntry, File};
 use crossbeam::channel::{Receiver, Sender};
 use std::time::{SystemTime};
 
@@ -19,6 +20,7 @@ use crate::disk::drive::{DriveStatus};
 use crate::ui::container::{Container};
 use crate::memory_constants::*;
 use crate::messages::ToMiniFb::Buffer;
+use crate::ui::disks_window::DisplayedDisk;
 use crate::ui::hires_screen::{AColor, HiresScreen};
 
 #[derive(Clone, Copy, Default, PartialEq)]
@@ -138,13 +140,10 @@ pub struct MyEguiApp {
 
     /// Disks window
     /// The content of the directory
-    pub(crate) disks_all_disks: Vec<DiskInfo>,
+    pub(crate) disks_all_disks: Vec<DisplayedDisk>,
     /// The disks we are actually displaying (might be filtered)
-    pub(crate) disks_displayed_disks: Vec<DiskInfo>,
+    pub(crate) disks_displayed_disks: Vec<DisplayedDisk>,
     pub(crate) disks_filter: String,
-    pub(crate) disks_woz1: bool,
-    pub(crate) disks_woz2: bool,
-    pub(crate) disks_dsk: bool,
 
     /// If true, activate trace
     pub(crate) trace: bool,
@@ -458,9 +457,6 @@ impl MyEguiApp {
             disks_displayed_disks: disks.clone(),
             disks_all_disks: disks,
             disks_filter: "".to_string(),
-            disks_woz1: true,
-            disks_woz2: true,
-            disks_dsk: true,
 
             trace: false,
             disassemble_from: "0".to_string(),

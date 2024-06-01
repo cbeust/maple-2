@@ -1,14 +1,26 @@
-use std::path::Path;
+use std::path::{Path};
 use eframe::egui::{Align, Color32, Label, Layout, RichText, ScrollArea, Ui, Vec2};
-use ignore::Walk;
+use ignore::{DirEntry, Walk};
 use rfd::FileDialog;
 use crate::constants::{BUGGY_DISKS, DISKS_SUFFIXES};
-use crate::disk::disk::Disk;
 use crate::disk::disk_controller::{DiskController};
-use crate::disk::disk_info::DiskInfo;
-use crate::disk::disk_info::DiskType::{Dsk, Woz1, Woz2};
 use crate::messages::ToCpu::LoadDisk;
 use crate::ui::ui::{MyEguiApp, ui_log};
+
+#[derive(Clone)]
+pub(crate) struct DisplayedDisk {
+    file_name: String,
+    path: String,
+}
+
+impl DisplayedDisk {
+    fn new(d: DirEntry) -> DisplayedDisk {
+        DisplayedDisk {
+            file_name: d.file_name().to_str().unwrap().to_string(),
+            path: d.path().to_str().unwrap().to_string(),
+        }
+    }
+}
 
 impl MyEguiApp {
     fn is_buggy(name: &str) -> bool {
@@ -23,16 +35,12 @@ impl MyEguiApp {
 
         use rayon::prelude::*;
         self.disks_displayed_disks = disks.par_iter().filter_map(|d| {
-            if self.disks_filter.is_empty() || d.path().to_lowercase().contains(&self.disks_filter) {
-                #[allow(clippy::if_same_then_else)]
-                if d.disk_type == Woz1 && self.disks_woz1 { Some(d.clone()) }
-                else if d.disk_type == Woz2 && self.disks_woz2 { Some(d.clone()) }
-                else if d.disk_type == Dsk && self.disks_dsk { Some(d.clone()) }
-                else { None }
+            if self.disks_filter.is_empty() || d.file_name.to_lowercase().contains(&self.disks_filter) {
+                Some(d.clone())
             } else {
                 None
             }
-        }).collect::<Vec<DiskInfo>>();
+        }).collect::<Vec<DisplayedDisk>>();
     }
 
     pub fn create_disks_window(&mut self, ui: &mut Ui) {
@@ -48,7 +56,7 @@ impl MyEguiApp {
                         .min_scrolled_height(600.0).show(ui, |ui| {
                     let disks = self.disks_displayed_disks.clone();
                     if ! disks.is_empty() {
-                        for disk_info in &self.disks_displayed_disks {
+                        for displayed_disk in &self.disks_displayed_disks {
                             ui.horizontal(|ui| {
                                 //
                                 // Drive 1 / Drive 2
@@ -56,7 +64,7 @@ impl MyEguiApp {
                                 let mut drive_label = |index: usize, label: &str| {
                                     let mut drive_label = RichText::new(label);
                                     if let Some(di) = &self.disk_infos[index] {
-                                        if *di.path == disk_info.path {
+                                        if *di.path == *displayed_disk.path {
                                             drive_label = RichText::new(label)
                                                 .background_color(Color32::DARK_BLUE);
                                         }
@@ -64,7 +72,7 @@ impl MyEguiApp {
 
                                     if ui.button(drive_label).clicked() {
                                         let disk = DiskController::
-                                            load_disk_new(&disk_info.path(), None);
+                                            load_disk_new(&displayed_disk.path, None);
                                         if let Ok(disk) = disk {
                                             self.sender.send(
                                                 LoadDisk(index, disk.disk_info().clone())).unwrap();
@@ -77,17 +85,17 @@ impl MyEguiApp {
                                 //
                                 // Name of the disk, in the correct color
                                 //
-                                let color = if Self::is_buggy(disk_info.name()) {
+                                let color = if Self::is_buggy(&displayed_disk.file_name) {
                                     Color32::RED
-                                } else if disk_info.path().to_lowercase().ends_with("woz") {
+                                } else if displayed_disk.file_name.to_lowercase().ends_with("woz") {
                                     Color32::YELLOW
                                 } else {
                                     Color32::LIGHT_BLUE
                                 };
                                 ui.scope(|ui| {
                                     ui.set_max_width(150.0);
-                                    let max = std::cmp::min(60, disk_info.name().len());
-                                    let n = &disk_info.name()[0..max];
+                                    let max = std::cmp::min(60, displayed_disk.file_name.len());
+                                    let n = &displayed_disk.file_name[0..max];
                                     ui.add(Label::new(RichText::new(n).color(color)));
                                     // let r = Rect::from_min_size(Pos2::new(0.0, 0.0), Vec2::new(300.0, 15.0));
                                     // ui.put(r, Label::new(RichText::new(disk_info.name()).color(color)));
@@ -134,15 +142,6 @@ impl MyEguiApp {
                                     }
                                 });
                             });
-                            if ui.checkbox(&mut self.disks_woz1, "Woz v1").clicked() {
-                                self.recalculate_disks();
-                            }
-                            if ui.checkbox(&mut self.disks_woz2, "Woz v2").clicked() {
-                                self.recalculate_disks();
-                            }
-                            if ui.checkbox(&mut self.disks_dsk, "Dsk").clicked() {
-                                self.recalculate_disks();
-                            }
                         });
                     });
                 });
@@ -168,8 +167,8 @@ impl MyEguiApp {
         }
     }
 
-    pub fn read_disks_directories(directories: &[String]) -> Vec<DiskInfo> {
-        let mut result: Vec<DiskInfo> = Vec::new();
+    pub fn read_disks_directories(directories: &[String]) -> Vec<DisplayedDisk> {
+        let mut result: Vec<DisplayedDisk> = Vec::new();
         for path in directories.iter() {
             let builder = Walk::new(path).filter(|f| {
                 if let Ok(de) = f {
@@ -188,20 +187,16 @@ impl MyEguiApp {
             });
             for file in builder {
                 if let Ok(f) = file {
-                    let p = f.into_path().to_str().unwrap().to_string();
-                    if let Ok(disk) = Disk::new(&p, true /* quick */, None) {
-                        result.push(disk.disk_info().clone());
-                    } else {
-                        ui_log(&format!("Error getting disk_info: {p}"));
-                    }
+                    result.push(DisplayedDisk::new(f));
                 } else {
                     ui_log(&format!("Error in file {:?}", file));
                 }
             }
         };
 
-        result.sort_by(|a, b| a.name().to_lowercase().partial_cmp(&b.name().to_lowercase()).unwrap());
-        result.dedup_by(|a, b| a.name() == b.name());
+        result.sort_by(|a, b| a.file_name.to_lowercase().partial_cmp(
+            &b.file_name.to_lowercase()).unwrap());
+        result.dedup_by(|a, b| a.file_name == b.file_name);
         result
     }
 }
