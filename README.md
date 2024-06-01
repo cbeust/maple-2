@@ -10,7 +10,7 @@
 
 
 <p align="center">
-  <img src="https://github.com/cbeust/sixty.rs/assets/92322/df1edb10-ac16-481b-8954-185fc713066a" width="400%">
+  <img src="https://github.com/cbeust/pics/blob/main/maple-2/ultima-4.gif?raw=true">
 </p>
 
 # Introduction
