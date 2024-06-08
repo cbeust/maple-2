@@ -133,6 +133,12 @@ impl Disassemble {
         let op = &operands[opcode as usize];
         let byte1 = memory[address.wrapping_add(1) as usize];
         let byte2 = memory[address.wrapping_add(2) as usize];
+        Disassemble::disassemble2(operands, address, op, byte1, byte2)
+    }
+    
+    pub fn disassemble2(operands: &[Operand], address: u16,
+        op: &Operand, byte1: u8, byte2: u8)
+            -> DisassemblyLine {
         let bytes: Vec<u8> =
             if op.size == 1 {
                 Vec::new()
@@ -142,7 +148,7 @@ impl Disassemble {
                 vec![byte1, byte2]
             };
 
-        let line = Operand::disassemble_bytes(address, operands, opcode, byte1, byte2);
+        let line = Operand::disassemble_bytes(address, operands, op.opcode, byte1, byte2);
 
         DisassemblyLine {
             op: *op,

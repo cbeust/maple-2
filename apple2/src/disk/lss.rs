@@ -35,6 +35,13 @@ pub struct Lss {
 }
 
 impl Lss {
+    pub(crate) fn reset(&mut self) {
+        self.latch = self.latch & 0x7F;
+        self.state = 0;
+    }
+}
+
+impl Lss {
     pub fn on_pulse(&mut self, q6: bool, q7: bool, motor_on: bool, drive: &mut Drive) {
         let phase80 = drive.get_phase80();
         if let Some(d) = &mut drive.disk {
@@ -60,11 +67,14 @@ impl Lss {
         }
 
         let mut idx = 0_u8;
-        idx = idx | (if pulse == 1 { 0 } else { 1 });
-        idx = idx | (if (self.latch & 0x80) > 0 { 2 } else { 0 });
-        idx = idx | (if q6 { 4 } else { 0 });
-        idx = idx | (if q7 { 8 } else { 0 });
-        idx = idx | (self.state << 4);
+        let qa = ((self.latch & 0x80) >> 7) != 0;
+        // q7 is read/write switch, q6 is shift/load switch
+        idx =
+            if pulse == 0 { 1 } else { 0 }
+            | (if qa { 2 } else { 0 })
+            | (if q6 { 4 } else { 0 })
+            | (if q7 { 8 } else { 0 })
+            | (self.state << 4);
 
         // Table 9.3, page 0-16 of Understanding the Apple 2, Jim Sather
         let command = P6[idx as usize];
@@ -80,7 +90,8 @@ impl Lss {
             }
             0xa | 0xe => {
                 // SR
-                self.latch >>= 1; // not write protected
+                self.latch >>= 1;
+                self.latch += 0x80; // This should be write protect
             }
             0xb | 0xf => {
                 // LD

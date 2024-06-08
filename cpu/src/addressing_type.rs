@@ -8,7 +8,7 @@ pub enum AddressingType {
 
 fn h(v: u8) -> String { format!("{:02X}", v) }
 
-fn hh(v: u16) -> String { format!("{:X}", v) }
+fn hh(v: u16) -> String { format!("{:04X}", v) }
 
 use std::fmt::{Display, Formatter, Result};
 use crate::cpu::Cpu;
@@ -36,7 +36,7 @@ impl AddressingType {
             Absolute_Y => format!("${},Y", hh(word)),
             Indirect_X => format!("(${},X)", h(byte)),
             Indirect_Y => format!("(${}),Y", h(byte)),
-            Indirect => format!("(${})", hh(word)),
+            Indirect => format!("$({})", hh(word)),
             Indirect_Abs_X => {
                 format!("(${},X)", hh(word))
             },

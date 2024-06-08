@@ -147,7 +147,8 @@ fn test_encoded_data() {
 
 // #[test]
 fn test_boot_sequence() {
-    let mut computer = create_apple2::<Apple2Memory>(None, None, [None, None], EmulatorConfigMsg::default(), None);
+    let mut computer = create_apple2::<Apple2Memory>(None, None, None, [None, None],
+        EmulatorConfigMsg::default(), None);
     println!("Created computer");
     computer.cpu.cpu.pc = 0xc65c;
     computer.cpu.cpu.x = 0x60;

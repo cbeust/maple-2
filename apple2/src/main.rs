@@ -49,6 +49,7 @@ mod ui {
 }
 
 
+use cpu::messages::ToLogging;
 use std::fs::File;
 use std::io::Write;
 use crossbeam::channel::{Receiver, Sender, unbounded};
@@ -71,6 +72,7 @@ use notify::{RecursiveMode};
 use notify_debouncer_mini::{DebouncedEventKind, new_debouncer};
 use serde::{Deserialize, Serialize};
 use cpu::config::{Config};
+use cpu::logging_thread::Logging;
 use crate::apple2_cpu::{AppleCpu, EmulatorConfigMsg};
 use crate::config_file::ConfigFile;
 use crate::constants::*;
@@ -236,17 +238,32 @@ fn main() -> eframe::Result<()> {
         ]
     };
     let emulator_config = EmulatorConfigMsg::new(config.copy());
+    let (logging_sender, logging_receiver): (Sender<ToLogging>, Receiver<ToLogging>) = unbounded();
+
     if benchmark {
-        let mut apple2 = create_apple2::<Apple2Memory>(Some(sender), Some(receiver2),
-            disks, emulator_config.clone(), None);
+        let mut apple2 = create_apple2::<Apple2Memory>(Some(sender), Some(logging_sender),
+            Some(receiver2), disks, emulator_config.clone(), None);
         apple2.cpu.run();
     } else {
-        let config2 = emulator_config.clone();
         let sender4 = sender2.clone();
-        let _ = thread::Builder::new().name("Apple ][ emulator".to_string()).spawn(move || {
+        //
+        // Spawn the logging thread
+        //
+        let (sender_to_cpu_ui, receiver_to_cpu_ui) = unbounded();
+        let config3 = config.clone();
+        let _ = thread::Builder::new().name("Maple // - Logger".to_string()).spawn(move || {
+            Logging::new(config3, logging_receiver, Some(sender_to_cpu_ui)).run();
+        });
+
+        //
+        // Spawn the emulator
+        //
+        let config2 = emulator_config.clone();
+        let _ = thread::Builder::new().name("Maple // - Emulator".to_string()).spawn(move || {
             let mut rebooting = true;
             while rebooting {
                 let mut apple2 = create_apple2::<Apple2Memory>(Some(sender.clone()),
+                    Some(logging_sender.clone()),
                     Some(receiver2.clone()), disks.clone(), config2.clone(), Some(handle.clone()));
                 // if audit {
                 //     apple2.cpu.cpu.memory.load_file("/Users/Ced/rust/a2audit/audit/audit.o", 0x6000, 0, 0, true);
@@ -322,8 +339,9 @@ fn main() -> eframe::Result<()> {
                 ..Default::default()
         };
         _ = eframe::run_native("Cedric's Apple ][ Emulator", native_options,
-           Box::new(|cc| Box::new(MyEguiApp::new(config_file, cc, sender2, receiver,
-               Some(sender_minifb)))));
+           Box::new(|cc| Box::new(
+               MyEguiApp::new(config_file, cc, sender2, receiver, Some(receiver_to_cpu_ui),
+                   Some(sender_minifb)))));
     }
     Ok(())
 }
@@ -341,6 +359,7 @@ impl Apple2 {
 }
 
 pub(crate) fn create_apple2<T: Memory>(sender: Option<Sender<ToUi>>,
+        logging_sender: Option<Sender<ToLogging>>,
         receiver: Option<Receiver<ToCpu>>,
         disk_infos: [Option<DiskInfo>; 2],
         config: EmulatorConfigMsg,
@@ -350,8 +369,8 @@ pub(crate) fn create_apple2<T: Memory>(sender: Option<Sender<ToUi>>,
 
     m.load_roms();
 
-    let mut cpu = AppleCpu::new(Cpu::new(m, config.config.clone()), config.clone(), sender.clone(),
-        receiver, handle);
+    let mut cpu = AppleCpu::new(Cpu::new(m, logging_sender, config.config.clone()),
+        config.clone(), sender.clone(), receiver, handle);
     cpu.cpu.pc = cpu.cpu.memory.word(0xfffc);
     send_message!(sender, ToUi::Config(config.clone()));
     Apple2 { cpu }

@@ -7,6 +7,7 @@ use eframe::{Frame};
 use eframe::egui::*;
 use egui_virtual_list::VirtualList;
 use cpu::config::Config;
+use cpu::messages::ToCpuUi;
 use crate::apple2_cpu::EmulatorConfigMsg;
 use crate::ConfigFile;
 use crate::messages::{CpuDumpMsg, SetMemoryMsg, ToCpu, ToMiniFb, TrackSectorMsg};
@@ -80,6 +81,8 @@ pub enum DrawCommand {
 pub struct MyEguiApp {
     pub(crate) sender: Sender<ToCpu>,
     receiver: Receiver<ToUi>,
+    receiver_cpu_ui: Option<Receiver<ToCpuUi>>,
+    logging_status: String,
     sender_minifb: Option<Sender<ToMiniFb>>,
     pub cpu: CpuDumpMsg,
     pub(crate) config_file: ConfigFile,
@@ -185,10 +188,21 @@ impl MyEguiApp {
         });
     }
 
+    pub(crate) fn label(ui: &mut Ui, label: &str, variable: String) {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(label).font(FontId::monospace(12.0)));
+            ui.label(RichText::new(variable));
+        });
+    }
+
     fn display(&mut self, ctx: &Context, _eframe: &mut Frame) {
+        let logging_status = if self.logging_status.is_empty() { "".to_string() }
+            else { format!(" - {}", self.logging_status) };
         ctx.send_viewport_cmd(ViewportCommand::Title(
-            format!("Maple //                                  An Apple ][ emulator in Rust by Cédric Beust - Speed {:.2} Mhz",
-            self.speed)));
+            format!("Maple // - An Apple ][ emulator by Cédric Beust - Speed {:.2} Mhz {}",
+                self.speed,
+                logging_status
+            )));
         let mut container = Container::default();
 
         // ctx.style_mut(|ui| ui.override_text_style = Some(TextStyle::Heading));
@@ -407,7 +421,8 @@ impl MyEguiApp {
     }
 
     pub(crate) fn new(config_file: ConfigFile, _: &eframe::CreationContext<'_>,
-        sender: Sender<ToCpu>, receiver: Receiver<ToUi>, sender_minifb: Option<Sender<ToMiniFb>>)
+        sender: Sender<ToCpu>, receiver: Receiver<ToUi>, receiver_cpu_ui: Option<Receiver<ToCpuUi>>,
+                sender_minifb: Option<Sender<ToMiniFb>>)
             -> Self {
         // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_visuals.
         // Restore app state using cc.storage (requires the "persistence" feature).
@@ -422,6 +437,7 @@ impl MyEguiApp {
             cpu: CpuDumpMsg::default(),
             sender,
             receiver,
+            receiver_cpu_ui,
             sender_minifb,
             config_file,
             keys: VecDeque::with_capacity(10),
@@ -466,6 +482,8 @@ impl MyEguiApp {
 
             dhg_rgb_mode: 0,
             scan_lines: true,
+
+            logging_status: "".to_string(),
         }
     }
 
@@ -495,6 +513,19 @@ impl MyEguiApp {
 impl eframe::App for MyEguiApp {
     fn update(&mut self, ctx: &Context, eframe: &mut Frame) {
         use ToUi::*;
+        if let Some(receiver) = &self.receiver_cpu_ui {
+            while let Ok(message) = receiver.try_recv() {
+                match message {
+                    ToCpuUi::LogStarted => {
+                        self.logging_status = "Logging active".to_string();
+                    }
+                    ToCpuUi::LogEnded => {
+                        self.logging_status = "".to_string();
+                    }
+                }
+            }
+        }
+
         while let Ok(message) = self.receiver.try_recv() {
             match message {
                 Config(config) => {

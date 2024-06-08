@@ -67,19 +67,19 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             debug_asm: false,
-            trace_to_file: false,
             // debug_asm: true,
-            // trace_to_file: true,
+            // trace_to_file: false,
+            trace_to_file: true,
             csv: false,
             trace_file_csv: "c:\\t\\trace.csv".to_string(),
             trace_file_asm: "c:\\t\\trace.txt".to_string(),
-            trace_range: None, // Some((0x0000, 0xd000)),
+            trace_range: None, // Some((0x801, 0x900)),
             trace_count: None, // Some(1_000_000),
-            trace_pc_start: None, //  Some(0xa54f),
+            trace_pc_start: None, // Some(0x9777),
             trace_pc_stop: None,
-            trace_cycles_start: 0, // 23355900,
+            trace_cycles_start: 24_000_291,
             watched_files: Vec::new(),
-            is_65c02: true,
+            is_65c02: false,
             emulator_speed_hz: DEFAULT_EMULATOR_SPEED_HZ,
         }
     }

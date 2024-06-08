@@ -938,7 +938,7 @@ pub const OPERANDS_65C02: [Operand; 256] = [
     op(NOP_E3_65C02, 1, "nop", 1, Unknown),
     op(CPX_ZP, 2, "CPX", 3, Zp),
     op(SBC_ZP, 2, "SBC", 3, Zp),
-    op(INC_ZP, 2, "SBC", 3, Zp),
+    op(INC_ZP, 2, "INC", 5, Zp),
     op(SMB6_ZP_65C02, 2, "SMB6", 5, Zp),
     op(INX, 1, "INX", 2, Unknown),
     op(SBC_IMM, 2, "SBC", 2, Immediate),

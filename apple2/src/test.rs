@@ -34,7 +34,7 @@ fn test_cycle_count() {
 
     let (sender, _): (Sender<ToUi>, Receiver<ToUi>) = unbounded();
     let (_, receiver2): (Sender<ToCpu>, Receiver<ToCpu>) = unbounded();
-    let mut apple2 = create_apple2::<Apple2Memory>(Some(sender), Some(receiver2), [None, None],
+    let mut apple2 = create_apple2::<Apple2Memory>(Some(sender), None, Some(receiver2), [None, None],
         EmulatorConfigMsg::default(), None);
 
     let p = program;

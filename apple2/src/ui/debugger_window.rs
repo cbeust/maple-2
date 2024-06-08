@@ -4,6 +4,7 @@ use eframe::egui::text::LayoutJob;
 use cpu::operand::Operand;
 use cpu::constants::{OPERANDS_6502, OPERANDS_65C02};
 use cpu::disassembly::{Disassemble, DisassemblyLine};
+use crate::constants::CYCLES;
 use crate::messages::CpuStateMsg::{Paused, Running};
 use crate::messages::ToCpu::CpuState;
 use crate::ui::debugger_window::RowType::Highlighted;
@@ -43,6 +44,7 @@ impl MyEguiApp {
             if self.debugger_emulator_paused {
                 self.display_assembly_panel(ui);
                 self.display_registers(ui);
+                self.display_cycles(ui);
             };
             });
 
@@ -69,6 +71,13 @@ impl MyEguiApp {
                 }
                 // ui.add_enabled(self.debugger_emulator_paused, Button::new(STEP));
             });
+    }
+
+    /// Cycles
+    fn display_cycles(&mut self, ui: &mut Ui) {
+        ui.vertical(|ui| {
+            MyEguiApp::label(ui, "Cycles", format!("{}", &CYCLES.read().unwrap()));
+        });
     }
 
     /// Registers

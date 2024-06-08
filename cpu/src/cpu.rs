@@ -25,11 +25,14 @@ use std::convert::TryInto;
 use std::fmt::{Display, Formatter};
 use std::process::exit;
 use std::time::Instant;
+use crossbeam::channel::Sender;
 use crate::addressing_type::AddressingType;
 use crate::config::Config;
 use crate::constants;
-use crate::disassembly::RunDisassemblyLine;
+use crate::disassembly::{Disassemble, RunDisassemblyLine};
 use crate::log_file::log_file;
+use crate::messages::{LogMsg, ToLogging};
+use crate::messages::ToLogging::Log;
 use crate::operand::Operand;
 
 // fn init() -> [Operand; 256] {
@@ -147,6 +150,8 @@ pub struct Cpu<T: Memory> {
     start: Instant,
     started: bool,
     pub(crate) is_65c02: bool,
+
+    logging_sender: Option<Sender<ToLogging>>,
 }
 
 impl<T: Memory> Display for Cpu<T> {
@@ -166,7 +171,7 @@ pub enum RunStatus {
 }
 
 impl <T: Memory> Cpu<T> {
-    pub fn new(mut memory: T, config: Config) -> Cpu<T> {
+    pub fn new(mut memory: T, logging_sender: Option<Sender<ToLogging>>, config: Config) -> Cpu<T> {
         Cpu {
             memory,
             a: 0,
@@ -188,6 +193,7 @@ impl <T: Memory> Cpu<T> {
             started: false,
             is_65c02: config.is_65c02,
             operands: if config.is_65c02 { OPERANDS_65C02 } else { OPERANDS_6502 },
+            logging_sender,
         }
     }
 
@@ -281,7 +287,6 @@ impl <T: Memory> Cpu<T> {
         let max = 10;
         let mut i = 0;
 
-        // let mut bm = Box::new(&self.memory);
         let opcode = self.memory.get(pc);
 
         #[cfg(feature = "log_prodos")]
@@ -610,11 +615,7 @@ impl <T: Memory> Cpu<T> {
                     resolved_read = false;
                     self.memory.set(address, self.a);
                     self.last_write = Some((address, self.a));
-                    cycles += self.run_indirect(opcode, pc, address, STA_IND_Y, STA_ABS_X, STA_ABS_Y);
-                    // if self.pc == 0xc143 {
-                    //     println!("Stack: {}", self.format_stack());
-                    //     println!();
-                    // }
+                    // No +1 cycle in case of page crossing for STA
                 }
             },
             TXS => self.s = self.x,
@@ -702,10 +703,6 @@ impl <T: Memory> Cpu<T> {
             config.trace_cycles_start != 0 && config.trace_cycles_start <= self.cycles;
         debug |= self.trace_cycles_in_progress;
 
-        if pc == 0xa54f {
-            println!("INIT CALLED");
-        }
-
         if ! self.trace_in_progress {
             if let Some(pc_start) = config.trace_pc_start {
                 // Turn on that trace if we're around that PC
@@ -751,28 +748,41 @@ impl <T: Memory> Cpu<T> {
             if self.debug_line_count > 0 {
                 self.debug_line_count -= 1;
             }
-            let disassembly_line = self.memory.disassemble(&self.operands, pc);
-            let d = RunDisassemblyLine::new(self.cycles, disassembly_line,
-                resolved_address, resolved_value, resolved_read, cycles,
-                self.a, self.x, self.y, self.p.value(), self.s);
-            let stack = self.format_stack();
-            // println!("{} {} {}", d.to_asm(), self.p, stack);
-            // println!("{}", d.to_csv());
-            if false {
-                if config.trace_to_file {
-                    if config.csv {
-                        log_file(d.to_csv())
-                    } else {
-                        log_file(format!("{} {} {}", d.to_asm(), self.p, stack));
-                    }
+            if true {
+                // Asynchronous logging
+                if let Some(sender) = &self.logging_sender {
+                    let byte1 = self.memory.get(pc.wrapping_add(1));
+                    let byte2 = self.memory.get(pc.wrapping_add(2));
+                    sender.send(Log(LogMsg::new(self.cycles, pc, operand.clone(), byte1, byte2,
+                        resolved_address, resolved_value, resolved_read,
+                        self.a, self.x, self.y, self.p.value(), self.s)));
                 }
             } else {
-            if config.trace_to_file && config.csv {
-                log::info!("{}", d.to_csv());
-            } else {
-                log::info!("{} {} {}", d.to_asm(), self.p, stack);
+                // let disassembly_line = self.memory.disassemble(&self.operands, pc);
+                let disassembly_line = Disassemble::disassemble2(&self.operands, pc,
+                    &operand, self.memory.get(pc.wrapping_add(1)), self.memory.get(pc.wrapping_add(2)));
+                let d = RunDisassemblyLine::new(self.cycles, disassembly_line,
+                    resolved_address, resolved_value, resolved_read, cycles,
+                    self.a, self.x, self.y, self.p.value(), self.s);
+                let stack = self.format_stack();
+                // println!("{} {} {}", d.to_asm(), self.p, stack);
+                // println!("{}", d.to_csv());
+                if false {
+                    if config.trace_to_file {
+                        if config.csv {
+                            log_file(d.to_csv())
+                        } else {
+                            log_file(format!("{} {} {}", d.to_asm(), self.p, stack));
+                        }
+                    }
+                } else {
+                    if config.trace_to_file && config.csv {
+                        log::info!("{}", d.to_csv());
+                    } else {
+                        log::info!("{} {} {}", d.to_asm(), self.p, stack);
+                    }
+                }
             }
-        }
         }
         return cycles;
     }
@@ -861,10 +871,12 @@ impl <T: Memory> Cpu<T> {
         let mut resolved_value: Option<u8> = None;
 
         match opcode {
+            NOP => { cycles = 0; }
+
             //
             // Non documented 6502 opcodes
             //
-            NOP | NOP_8 | NOP_10 | NOP_11
+            NOP_8 | NOP_10 | NOP_11
             | NOP_ZP | NOP_13 | NOP_17 | NOP_19 | NOP_20
             => {}
 

@@ -443,6 +443,7 @@ impl DiskController {
             0xc08d => {
                 // Q6H
                 self.q6 = true;
+                self.lss.reset();
                 if ! self.q7 {
                     0 /* 0x80 to indicate write protected */
                 } else {
@@ -546,7 +547,7 @@ impl DiskController {
 
         let current_phase = self.drives[self.drive_index].get_phase80();
 
-        if true {
+        if false {
             self.drives[self.drive_index].set_phase80(self.drive_phase_80);
             send_message!(&self.sender, PhaseUpdate(self.drive_index, self.drive_phase_80 as u8));
         } else {
@@ -555,7 +556,7 @@ impl DiskController {
             // cycle)
             // Note: ArcticFox doesn't boot with this change, turn it off for now
             let delay = if self.actions.actions.is_empty() && current_phase != self.drive_phase_80 { 30_000 } else { 1 };
-            self.actions.add_action(delay, UpdatePhase(UpdatePhaseAction {
+            self.actions.add_action(10_000, UpdatePhase(UpdatePhaseAction {
                 drive_index: self.drive_index,
                 phase: self.drive_phase_80,
             }));

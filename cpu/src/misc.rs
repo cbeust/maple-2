@@ -51,7 +51,7 @@ pub(crate) fn create_cpu<T: Memory>(pc: u16, m: T) -> Cpu<T> {
     // let memory_listener = MListener::new();
     // let boxed = Box::new(memory_listener);
     // let m = DefaultMemory::new_with_file("6502_functional_test.bin");
-    let mut result = Cpu::new(m, Config::default());
+    let mut result = Cpu::new(m, None, Config::default());
     result.pc = pc;
     result
 }

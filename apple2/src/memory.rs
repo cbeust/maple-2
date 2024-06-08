@@ -242,8 +242,8 @@ impl Apple2Memory {
                 result = Some(0)
             }
 
-            // R only
-            0xc089 | 0xc08d if get => {
+            // Both R and W
+            0xc089 | 0xc08d => {
                 self.read_rom = RomReadType::Rom;
                 #[cfg(feature = "log_memory")]
                 self.log_mem(address, "Read rom");
@@ -255,8 +255,8 @@ impl Apple2Memory {
                 result = Some(0)
             }
 
-            // R only
-            0xc081 | 0xc085 if get => {
+            // Both R and W
+            0xc081 | 0xc085 => {
                 self.read_rom = RomReadType::Rom;
                 #[cfg(feature = "log_memory")]
                 self.log_mem(address, "Read rom");
@@ -275,8 +275,8 @@ impl Apple2Memory {
                 self.log_mem(address, "Read rom, no write");
                 result = Some(0)
             }
-            // R only
-            0xc083 | 0xc087 if get => {
+            // Both R and W
+            0xc083 | 0xc087 => {
                 self.read_rom = RomReadType::Bank2;
                 #[cfg(feature = "log_memory")]
                 self.log_mem(address, "Read bank 2");
@@ -287,8 +287,8 @@ impl Apple2Memory {
                 }
                 result = Some(0)
             }
-            // R only
-            0xc08b | 0xc08f if get => {
+            // Both R and W
+            0xc08b | 0xc08f => {
                 self.read_rom = RomReadType::Bank1;
                 #[cfg(feature = "log_memory")]
                 self.log_mem(address, "Read bank 1");

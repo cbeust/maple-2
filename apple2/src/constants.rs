@@ -141,6 +141,7 @@ lazy_static! {
         "Algernon".to_string(),  // broken if q6 and q7 are tested in lss::step()
         "Micro invaders".to_string(),
         "F-15".to_string(), // F-15 Strike Eagle
+        "Drol".to_string(),
     ];
 
     pub static ref DEFAULT_DISKS_DIRECTORIES: Vec<String> = vec![];

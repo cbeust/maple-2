@@ -16,8 +16,8 @@ use log4rs::encode::pattern::PatternEncoder;
 use cpu::memory::DefaultMemory;
 use cpu::cpu::{Cpu, RunStatus, StatusFlags};
 
-// const HARTE_DIRECTORY: &str = "d:\\pd\\ProcessorTests\\6502\\v1\\";
-const HARTE_DIRECTORY: &str = "c:\\Users\\Ced\\t\\ProcessorTests\\rockwell65c02\\v1";
+const HARTE_DIRECTORY: &str = "d:\\pd\\ProcessorTests\\6502\\v1\\";
+// const HARTE_DIRECTORY: &str = "c:\\Users\\Ced\\t\\ProcessorTests\\rockwell65c02\\v1";
 const FIRST_TEST: usize = 0x0;
 // Bug in SBC (0xe1) in BCD mode
 
@@ -49,17 +49,37 @@ lazy_static! {
     };
 }
 
+fn is_illegal(opcode: u8) -> bool {
+    let r = opcode & 0xf;
+    // Using https://www.masswerk.at/6502/6502_instruction_set.html
+    const ILLEGALS: [u8; 26] = [
+        0x80,
+        0x04, 0x14, 0x34, 0x44, 0x54, 0x64, 0x74, 0xd4, 0xf4,
+        0x89,
+        0x1a, 0x3a, 0x5a, 0x7a, 0xda, 0xfa,
+        0x0c, 0x1c, 0x3c, 0x5c, 0x7c, 0x9c, 0xdc, 0xfc,
+        0x9e,
+    ];
+    let result = r == 3 || r == 7 || r == 0xb || r == 0xf || (r == 2 && opcode != 0xa2)
+        || ILLEGALS.contains(&opcode);
+
+    result
+}
+
 #[derive(clap_derive::Parser, Default, Debug)]
 #[clap(author)] // , trailing_var_arg=true)]
 struct Args {
     #[arg(short, long)]
     text_only: bool,
 
-    #[arg(short, long)]
+    #[arg(short('c'), long)]
     skip_cycles: bool,
 
-    #[arg(short, long)]
+    #[arg(short, long, default_value="false")]
     skip_bcd: bool,
+
+    #[arg(short('i'), long)]
+    include_illegal: bool,
 
     rest: Vec<String>,
 }
@@ -147,12 +167,12 @@ pub fn main() -> Result<(), ()> {
                             TestStatus::Failed(_, _, these_errors) => {
                                 println!("=== Failed: {:?}", these_errors);
                             }
-                            TestStatus::Skipped(_, _, _) => {
-                                println!("=== Skipped");
+                            TestStatus::Skipped(_, _, reason) => {
+                                println!("=== Skipped: {reason}");
                             }
                         };
                     }
-                    Err(_) => { panic!("Couldn't find test {}", test_name) }
+                    Err(err) => { panic!("{}", err) }
                 };
             }
         }
@@ -388,12 +408,12 @@ fn run_one_specific_test(directory: &str, file_name: &str, test_name: &str, args
         -> Result<TestStatus, String> {
     let fq = format!("{}\\{}", directory, file_name);
     let data = fs::read_to_string(fq).expect("Unable to read file");
-    let test: Vec<Test> = serde_json::from_str(&data).expect("Unable to parse");
-    let result = if let Some(test) = test.iter().find(|test| test.name == test_name) {
+    let tests: Vec<Test> = serde_json::from_str(&data).expect("Unable to parse");
+    let result = if let Some(test) = tests.iter().find(|test| test.name == test_name) {
         println!("Running:\n{}", &test);
         Ok(run_one_test(test, args, true))
     } else {
-        Err(format!("Couldn't find test named {} in file {}", test_name, file_name))
+        Err(format!("Couldn't find test named {test_name} in file {file_name}"))
     };
 
     result
@@ -401,9 +421,18 @@ fn run_one_specific_test(directory: &str, file_name: &str, test_name: &str, args
 
 fn run_one_test(test: &Test, args: &Args, debug_asm: bool) -> TestStatus {
     let bcd = (test.initial.p & 8) > 0;
+    if is_illegal(test.extract_opcode()) && ! args.include_illegal {
+        return TestStatus::Passed(test.extract_opcode(), test.name.clone());
+    }
+
     if bcd && args.skip_bcd {
         return TestStatus::Skipped(test.extract_opcode(), test.name.clone(),
             "BCD is being ignored".to_string());
+    }
+
+    if ! args.include_illegal && is_illegal(test.extract_opcode()) {
+        // println!("Skipping illegal opcode {}", test.extract_opcode());
+        return TestStatus::Passed(test.extract_opcode(), test.name.clone());
     }
 
     //
@@ -419,7 +448,7 @@ fn run_one_test(test: &Test, args: &Args, debug_asm: bool) -> TestStatus {
     //
     // Initialize the registers
     //
-    let mut cpu = Cpu::new(memory, cpu::config::Config::default());
+    let mut cpu = Cpu::new(memory, None, cpu::config::Config::default());
     cpu.asm_always = debug_asm;
     cpu.pc = test.initial.pc;
     cpu.a = test.initial.a;

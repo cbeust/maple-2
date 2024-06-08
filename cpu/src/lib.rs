@@ -10,5 +10,7 @@ pub mod operand;
 mod test;
 pub mod disassembly;
 mod log_file;
+pub mod logging_thread;
+pub mod messages;
 // mod test_json;
 

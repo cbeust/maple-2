@@ -244,7 +244,12 @@ impl BitStream {
     }
 
     pub fn len(&self) -> usize {
-        self.bits.len()
+        // If it's a random track, pretend we have the regular track length
+        if self.bits.len() == 1 {
+            51_200
+        } else {
+            self.bits.len()
+        }
     }
 
     pub fn next_bit(&self, bit_index: usize) -> u8 {
