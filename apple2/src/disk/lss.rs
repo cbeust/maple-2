@@ -57,7 +57,9 @@ impl Lss {
         if self.clock == 4 && ! q7 && ! q6 {
             pulse = disk.next_bit(phase80 * 2);
             if pulse == 0 {
-                self.zeros += 1;
+                // Just need to know that there were more than 2 zeros in a row, no point in saturating
+                // that number
+                if self.zeros < 10 { self.zeros += 1; }
                 if self.zeros > 2 {
                     pulse = if random::<f32>() < 0.3 { 1 } else { 0 }
                 }
