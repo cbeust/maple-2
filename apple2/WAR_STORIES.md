@@ -23,7 +23,7 @@ let odd = (address & 1) == 1;
 
 I stared and stared and stared, and suddenly, it hit me...
 I replaced the test with
-
+ 
 ```
 if (0xc080..=0xc08f).contains(&address) {
 ```
@@ -37,3 +37,33 @@ $C080..$C08F... Because of this bug, I was resetting PREWRITE A LOT, which cause
 And this also explains why a2audit didn't catch this bug, which can only be reproduced by accessing some random
 addresses above $C080, and even though@Zellyn 's code probably does this now and then, it resets the switches
 all the time in-between tests, which causes the bug to remain hidden..
+
+## Wizardry 1
+
+My initial implementation didn't boot this game (ended up with a garbage text screen). Looking into the
+code revealed a protection that counts nibbles on tracks 10, 11, 12, and 13 ($8A72). However, I couldn't
+find anywhere where these counts were checked. @qkumba explained to me that the protection check is actually
+done in Pascal (the language Wizardry 1 is written in) so the check would require a P-Code disassembler
+to look into. The check allows some variations in these numbers, and at long as they are within these
+ranges, the protection passes.
+
+But the weird part about this protection is that even though it does the exact same thing for these four
+tracks, the nibble counts expected were very different for all four tracks, e.g. : $120c, $58e, $120e, $53e.
+It took me a while to realize that on top of the nibble count, this was also a cross track synchronization
+check, and I realized that I had a bug in my code in that area.
+
+In order to simulate the head of the drive correctly, it's important to make sure than when the head
+moves to a different track, it needs to remain at approximately the same location, and my code was resetting
+it to 0 at each change. Instead, the position of the head needs to be recalculated according to the
+length in bits of the current track and the length in bits of the new track. This code is actually explicitly
+called out in the [Woz 2.1 reference](https://applesaucefdc.com/woz/reference2/) and looks like this:
+
+```rust
+new_position = current_position * new_track_length / current_track_length
+```
+
+The last obstacle I faced was that I was not claiming that the disk is write protected. Wizardry 1's disk
+will refuse to boot if it detects that it's writable, so make sure to honor the write protect status
+for that disk (i.e. $C08D followed by $C08E needs to return a value >= 0x80).
+
+Once this was fixed, the disk booted correctly.
