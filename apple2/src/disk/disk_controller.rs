@@ -458,7 +458,7 @@ impl DiskController {
                 self.q7= false;
                 self.previous_write_clock = 0;
                 if self.q6 {
-                    0 /* 0x80 to indicate write protected */
+                    0xff // write protect
                 } else  { 0 }
             }
             0xc08f => {
