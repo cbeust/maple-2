@@ -64,6 +64,9 @@ pub(crate) static START: OnceLock<Instant> = OnceLock::new();
 pub(crate) static SENDER_TO_UI: OnceLock<Sender<ToUi>> = OnceLock::new();
 pub(crate) static PC: RwLock<u16> = RwLock::new(0);
 pub(crate) static CYCLES: RwLock<u128> = RwLock::new(0);
+pub(crate) fn pc() -> String {
+    format!("{:04X}", *PC.read().unwrap())
+}
 
 pub(crate) const DEFAULT_DISK_INDICES: [Option<usize>; 2] =
     [Some(33,  /* 39 pics 40 KQ, 17 DOS, 41 bad */), Some(39)];
@@ -142,6 +145,7 @@ lazy_static! {
         "Micro invaders".to_string(),
         "F-15".to_string(), // F-15 Strike Eagle
         "Drol".to_string(),
+        "Bug Attack".to_string(),
     ];
 
     pub static ref DEFAULT_DISKS_DIRECTORIES: Vec<String> = vec![];
