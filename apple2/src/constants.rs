@@ -123,22 +123,15 @@ lazy_static! {
 
     /// Disks that are not booting or not working properly
     pub static ref BUGGY_DISKS: Vec<String> = vec![
-        "Blazing Paddles".to_string(),
         "Bruce Lee".to_string(), // Requires joystick
         "Crystal Quest".to_string(),
         "Frogger".to_string(),
         "Maniac Mansion".to_string(), // Infinite loop at $204
-        "Missile Defense".to_string(),
         "Prince of Persia".to_string(),
         "Stargate".to_string(),
-        "Take 1".to_string(),
-        "Wizardry".to_string(),
-        "Ultima Trilogy - Disk 2".to_string(), // error loading ProDOS (requires 65C02?)
-        "Wasteland".to_string(),
         "DOS 3.2".to_string(),
         "Zork r5".to_string(),
         "Akalabeth".to_string(),
-        "Cryllan".to_string(),
         "Ankh".to_string(),
         "Batman".to_string(),
         "Algernon".to_string(),  // broken if q6 and q7 are tested in lss::step()
@@ -146,6 +139,7 @@ lazy_static! {
         "F-15".to_string(), // F-15 Strike Eagle
         "Drol".to_string(),
         "Bug Attack".to_string(),
+        "Seafox".to_string(), // https://github.com/AppleWin/AppleWin/issues/668
     ];
 
     pub static ref DEFAULT_DISKS_DIRECTORIES: Vec<String> = vec![];
