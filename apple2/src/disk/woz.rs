@@ -21,8 +21,14 @@ pub struct Woz {
     tracks: (Option<Vec<TracksV1>>, Option<[Tracks; TMAP_SIZE]>),
     pub bit_streams: BitStreams,
     pub meta: HashMap<String, String>,
-    // 1 or 2, 0 if we haven't read the file yet
-    pub version: u8,
+    // version contains 1 or 2, 0 if we haven't read the file yet
+    pub info_chunk: InfoChunk,
+}
+
+#[derive(Clone, Default)]
+struct InfoChunk {
+    version: u8,
+    write_protected: bool,
 }
 
 impl Default for Woz {
@@ -34,16 +40,18 @@ impl Default for Woz {
             tracks: (None, None),
             bit_streams: Default::default(),
             meta: Default::default(),
-            version: 0,
+            info_chunk: InfoChunk::default(),
         }
     }
 }
 
 impl Woz {
-    pub fn bit_streams(&self) -> BitStreams {
-        self.bit_streams.clone()
-    }
+    // pub fn bit_streams(&self) -> BitStreams {
+    //     self.bit_streams.clone()
+    // }
     pub fn title(&self) -> Option<String> { self.meta.get("title").cloned() }
+    pub fn version(&self) -> u8 { self.info_chunk.version }
+    pub fn is_write_protected(&self) -> bool { self.info_chunk.write_protected }
 }
 
 #[derive(Default, Clone, Copy)]
@@ -125,7 +133,7 @@ impl Woz {
             let name = woz.read4_string(bytes);
             let size = woz.read32(bytes) as usize;
             if name == "INFO" {
-                woz.version = woz.read_info_chunk(bytes);
+                woz.info_chunk = woz.read_info_chunk(bytes);
                 if quick {
                     end = true;
                 }
@@ -148,10 +156,10 @@ impl Woz {
 
         // Now decode the bitstreams if we're not just reading the version number
         if ! quick {
-            let disk_type = if woz.version == 1 { Woz1 } else { Woz2 };
+            let disk_type = if woz.version() == 1 { Woz1 } else { Woz2 };
             woz.disk_info = DiskInfo::new2(woz.meta.get("title").cloned(), filename,
-                woz.meta.clone(), disk_type);
-            woz.disk_info.disk_type = if woz.version == 1 { Woz1 } else { Woz2 };
+                woz.meta.clone(), disk_type, woz.is_write_protected());
+            woz.disk_info.disk_type = if woz.info_chunk.version == 1 { Woz1 } else { Woz2 };
             match woz.bytes_to_bit_streams(bytes, woz.disk_info.clone()) {
                 Ok(bb) => {
                     woz.bit_streams = bb;
@@ -161,7 +169,7 @@ impl Woz {
             }
         } else {
             woz.disk_info = DiskInfo::n(filename);
-            woz.disk_info.disk_type = if woz.version == 1 { Woz1 } else { Woz2 };
+            woz.disk_info.disk_type = if woz.info_chunk.version == 1 { Woz1 } else { Woz2 };
             Ok(woz)
         }
     }
@@ -400,7 +408,7 @@ impl Woz {
             -> (Option<Vec<TracksV1>>, Option<[Tracks; TMAP_SIZE]>) {
         let mut result1: Vec<TracksV1> = Vec::new();
         let mut result2: [Tracks; TMAP_SIZE] = [Tracks::default(); TMAP_SIZE];
-        let version = self.version;
+        let version = self.info_chunk.version;
         if version == 1 {
             let mut max_track = 0;
             for i in 0..self.tmap.len() {
@@ -455,14 +463,17 @@ impl Woz {
         }
     }
 
-    fn read_info_chunk(&mut self, bytes: &[u8]) -> u8 {
+    fn read_info_chunk(&mut self, bytes: &[u8]) -> InfoChunk {
         // println!("==== INFO");
         let version = self.read8(bytes);
         // println!("  Version:{}", version);
-        self.skip(59);
-        version
-        // println!("  Disk type:{}", if self.read(bytes) == 1 { "5.25" } else { "3.5" });
-        // println!("  Write protected:{}", if self.read(bytes) == 1 { "Yes" } else { "No" });
+        let disk_type = if self.read8(bytes) == 1 { "5.25" } else { "3.5" };
+        let write_protected = self.read8(bytes) == 1;
+        // println!("  Write protected:{}",
+
+        self.skip(57);
+        InfoChunk { version, write_protected }
+
         // println!("  Synchronized:{}", if self.read(bytes) == 1 { "Yes" } else { "No" });
         // println!("  Cleaned:{}", if self.read(bytes) == 1 { "Yes" } else { "No" });
         // println!("  Creator:{}", self.read_string(bytes, 32));

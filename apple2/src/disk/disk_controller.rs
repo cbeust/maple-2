@@ -457,9 +457,13 @@ impl DiskController {
                 // Q7L
                 self.q7= false;
                 self.previous_write_clock = 0;
+                let mut result = 0;
                 if self.q6 {
-                    0xff // write protect
-                } else  { 0 }
+                    if let Some(disk) = &self.drives[self.drive_index].disk {
+                        if disk.disk_info().is_write_protected { result = 0xff; }
+                    }
+                }
+                result
             }
             0xc08f => {
                 // Q7H

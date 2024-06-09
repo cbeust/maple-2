@@ -102,6 +102,10 @@ pub enum ToCpu {
     SaveGraphics,
     /// Drive number (0 or 1), path
     LoadDisk(usize, DiskInfo),
+    /// Make disk write protected
+    LockDisk(usize),
+    /// Make disk writable
+    UnlockDisk(usize),
     Debug,
     /// true: run, false: pause
     CpuState(CpuStateMsg),

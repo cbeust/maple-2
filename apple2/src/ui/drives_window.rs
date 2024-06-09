@@ -1,8 +1,8 @@
-use eframe::egui::{Color32, FontId, Label, Pos2, RichText, Ui, Vec2};
+use eframe::egui::{Color32, FontId, Label, Pos2, Response, RichText, Ui, Vec2};
 use rfd::FileDialog;
 use crate::disk::disk_info::DiskInfo;
 use crate::disk::drive::DriveStatus;
-use crate::messages::ToCpu::LoadDisk;
+use crate::messages::ToCpu::{LoadDisk, LockDisk, UnlockDisk};
 use crate::send_message;
 use crate::ui::ui::MyEguiApp;
 
@@ -60,23 +60,41 @@ impl MyEguiApp {
                 }
 
                 ui.vertical(|ui| {
-                    ui.add_sized(Vec2::new(self.min_width / 2.0 - 95.0, 20.0), Label::new(disk_name_label));
+                    ui.add_sized(Vec2::new(self.min_width / 2.0 - 95.0, 20.0),
+                        Label::new(disk_name_label));
                     if ! disk_side_label.is_empty() {
-                        ui.add_sized(Vec2::new(self.min_width / 2.0 - 95.0, 22.0), Label::new(disk_side_label));
+                        ui.add_sized(Vec2::new(self.min_width / 2.0 - 95.0, 22.0),
+                            Label::new(disk_side_label));
                     }
                 });
+
+                fn icon(ui: &mut Ui, icon: &str, tooltip: &str) -> Response {
+                    ui.button(RichText::new(icon).size(22.0)).on_hover_text(tooltip)
+                }
 
                 //
                 // Open disk and other buttons
                 //
                 ui.vertical(|ui| {
-                    if ui.button("\u{1f4c2}").clicked() {
+                    if icon(ui, "\u{1f4c2}", "Open...").clicked() {
                         if let Some(file) = FileDialog::new()
                                 .add_filter("Apple disk", &["woz", "dsk"])
-                                .set_directory("d:\\pd\\Apple Disks")
                                 .pick_file() {
                             let disk_info = DiskInfo::n(file.to_str().unwrap());
                             self.sender.send(LoadDisk(i, disk_info)).unwrap();
+                        }
+                    }
+                    if let Some(di) = &self.disk_infos[i] {
+                        // Unlock
+                        if di.is_write_protected {
+                            if icon(ui, "\u{1f513}", "Unlock disk").clicked() {
+                                self.sender.send(UnlockDisk(i)).unwrap();
+                            }
+                        } else {
+                            // Lock
+                            if icon(ui, "\u{1f512}", "Lock disk").clicked() {
+                                self.sender.send(LockDisk(i)).unwrap();
+                            }
                         }
                     }
                 });

@@ -16,6 +16,7 @@ pub struct DiskInfo {
     pub(crate) disk_type: DiskType,
     pub(crate) path: String,
     pub(crate) map: HashMap<String, String>,
+    pub(crate) is_write_protected: bool,
 }
 
 impl Display for DiskInfo {
@@ -30,20 +31,21 @@ impl DiskInfo {
     pub fn new(name: &str, path: &str) -> Self {
         Self {
             name: Some(name.to_string()), path: path.to_string(), map: HashMap::new(),
-            disk_type: DiskType::Unknown
+            disk_type: DiskType::Unknown, is_write_protected: true,
         }
     }
 
-    pub fn new2(name: Option<String>, path: &str, map: HashMap<String, String>, disk_type: DiskType)
+    pub fn new2(name: Option<String>, path: &str, map: HashMap<String, String>, disk_type: DiskType,
+            is_write_protected: bool)
             -> Self {
         Self {
-            name, path: path.to_string(), map, disk_type
+            name, path: path.to_string(), map, disk_type, is_write_protected,
         }
     }
 
     pub fn n(path: &str) -> Self {
         Self { name: None, path: path.to_string(), map: HashMap::default(),
-            disk_type: DiskType::Unknown }
+            disk_type: DiskType::Unknown, is_write_protected: true, }
     }
 
     pub fn path(&self) -> String { self.path.to_string() }

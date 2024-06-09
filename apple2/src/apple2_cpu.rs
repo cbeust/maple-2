@@ -195,6 +195,10 @@ impl AppleCpu {
                                 self.cpu.memory.disk_controller.load_disk_from_file(drive_number,
                                     disk_info);
                             }
+                            LockDisk(drive_number) => {
+                            }
+                            UnlockDisk(drive_number) => {
+                            }
                             CpuState(state) => {
                                 match state {
                                     CpuStateMsg::Running => { paused = false; }

@@ -154,9 +154,6 @@ pub struct MyEguiApp {
     pub(crate) disassemble_to: String,
     pub(crate) disassemble_to_file: String,
 
-    /// If true, activate DHGR (debug)
-    debug_dhgr: bool,
-
     /// If true, activate scan lines
     pub(crate) scan_lines: bool,
 
@@ -234,7 +231,6 @@ impl MyEguiApp {
                 if ui.button("Debug").clicked() {
                     self.sender.send(Debug).unwrap();
                 }
-                ui.checkbox(&mut self.debug_dhgr, "DHGR");
             });
         });
 
@@ -478,7 +474,6 @@ impl MyEguiApp {
             disassemble_from: "0".to_string(),
             disassemble_to: "0".to_string(),
             disassemble_to_file: Config::default().trace_file_asm,
-            debug_dhgr: false,
 
             dhg_rgb_mode: 0,
             scan_lines: true,
