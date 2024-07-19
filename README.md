@@ -21,10 +21,11 @@ diverged quite a bit after a while and by now, it supports a lot of additional f
 Maple // has a specific focus on being developer friendly by exposing a lot of internal details on the emulation, e.g.
 
 - A convenient file picker view that lets you quickly insert disks in the drives of your choice
+- Support for disk formats (`dsk`, `woz`) and hard drive / SmartPort (`hdv`). Try the Total Replay image!
 - A Nibble view that shows you the raw nibbles contained on the current track
-- A track map showing you which tracks are standard (green dot) and non standard (yellow dot)
+- A track map showing you which tracks are standard (green dot) and non standard (red dot)
 - A disk view, so you can visualize the head as it moves across the disk
-- A debugger (very much a work in progress)
+- A debugger
 
 ## Building and running
 
