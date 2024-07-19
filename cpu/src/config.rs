@@ -1,6 +1,6 @@
 use crate::constants::DEFAULT_EMULATOR_SPEED_HZ;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WatchedFileMsg {
     pub path: String,
     pub address: u16,
@@ -14,7 +14,7 @@ impl WatchedFileMsg {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Config {
     pub debug_asm: bool,
     pub csv: bool,
@@ -68,8 +68,8 @@ impl Default for Config {
         Self {
             debug_asm: false,
             // debug_asm: true,
-            // trace_to_file: false,
-            trace_to_file: true,
+            trace_to_file: false,
+            // trace_to_file: true,
             csv: false,
             trace_file_csv: "c:\\t\\trace.csv".to_string(),
             trace_file_asm: "c:\\t\\trace.txt".to_string(),
@@ -77,7 +77,7 @@ impl Default for Config {
             trace_count: None, // Some(1_000_000),
             trace_pc_start: None, // Some(0x9777),
             trace_pc_stop: None,
-            trace_cycles_start: 24_000_291,
+            trace_cycles_start: 0, // 24_000_291,
             watched_files: Vec::new(),
             is_65c02: false,
             emulator_speed_hz: DEFAULT_EMULATOR_SPEED_HZ,

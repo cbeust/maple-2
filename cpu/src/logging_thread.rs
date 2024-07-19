@@ -1,5 +1,5 @@
 use std::time::SystemTime;
-use crossbeam::channel::{Receiver, RecvError, Sender};
+use crossbeam::channel::{Receiver, Sender};
 use crate::config::Config;
 use crate::constants::OPERANDS_6502;
 use crate::disassembly::{Disassemble, RunDisassemblyLine};
@@ -27,7 +27,7 @@ impl Logging {
     pub fn run(&mut self) {
         let mut run = true;
         while run {
-            if let Ok(message) = self.receiver.try_recv() {
+            if let Ok(message) = self.receiver.recv() {
                 self.last_received_message = SystemTime::now();
                 if ! self.active {
                     if let Some(sender) = &self.sender {
@@ -42,6 +42,9 @@ impl Logging {
                     ToLogging::End => {
                         run = true;
                     }
+                    ToLogging::Exit => {
+                        run = false;
+                    }
                 }
             }
             if self.active {
@@ -55,6 +58,7 @@ impl Logging {
                 }
             }
         }
+        println!("Logging thread exiting");
     }
 
     fn log(&self, LogMsg { global_cycles, pc, operand, byte1, byte2,

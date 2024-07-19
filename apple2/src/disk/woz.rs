@@ -9,7 +9,7 @@ use crate::disk::disk_info::DiskInfo;
 use crate::disk::disk_info::DiskType::{Woz1, Woz2};
 use crate::disk::dsk_to_woz::crc32;
 use crate::misc::{bit, save};
-use crate::ui::ui::ui_log;
+use crate::ui_log;
 
 const TMAP_SIZE: usize = MAX_PHASE;
 
@@ -104,7 +104,7 @@ impl Woz {
     /// If `read_version` is true, then we only read the version of the file and do not
     /// parse anything else. If it's false, decode the whole file, including the bit streams
     pub fn new_with_file(filename: &str, quick: bool) -> Result<Woz, String> {
-        let mut file = File::open(filename).unwrap();
+        let mut file = File::open(filename).map_err(|e| e.to_string())?;
         let mut buffer: Vec<u8> = Vec::new();
         file.read_to_end(&mut buffer).unwrap();
         Woz::new(&buffer, filename, quick)

@@ -1,16 +1,20 @@
 use std::fs::File;
 use std::io::prelude::*;
+use std::ops::DerefMut;
+use std::sync::{RwLock};
+use once_cell::sync::Lazy;
 use cpu::config::WatchedFileMsg;
-use cpu::cpu::StatusFlags;
+use cpu::cpu::{RunStatus, StatusFlags};
 use cpu::disassembly::Disassemble;
 use cpu::operand::Operand;
 use crate::apple2_cpu::EmulatorConfigMsg;
 use crate::disk::disk_info::DiskInfo;
 use crate::disk::drive::DriveStatus;
-use crate::ui::ui::DrawCommand;
+use crate::ui::hires_screen::AColor;
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct CpuDumpMsg {
+    pub id: u64,
     pub memory: Vec<u8>,
     pub aux_memory: Vec<u8>,
     pub a: u8,
@@ -19,32 +23,34 @@ pub struct CpuDumpMsg {
     pub pc: u16,
     pub p: StatusFlags,
     pub s: u8,
+    pub(crate) run_status: RunStatus,
 }
 
-#[derive(Default, Clone)]
-pub struct TrackSectorMsg {
-    pub track: f32,
-    pub sector: u8,
+#[derive(Clone, Debug, Copy)]
+pub enum DrawCommand {
+    // x0, y0, x1, y1, color
+    Rectangle(f32, f32, f32, f32, AColor),
 }
 
+#[derive(Clone, Debug)]
 pub enum ToUi {
     Config(EmulatorConfigMsg),
-    CpuDump(CpuDumpMsg),
+    // CpuDump(CpuDumpMsg),
     EmulatorSpeed(f32),  // Speed in Mhz
-    // Drive (0 or 1), track, sector
-    TrackSector(usize, TrackSectorMsg),
-    // Drive (0 or 1), disk info (file name and name)
-    DiskInfo(usize, Option<DiskInfo>),
     // Different drive selected (0 or 1)
     DiskSelected(usize),
     // Tell the UI that we're ready for another key
     KeyboardStrobe,
     // First parameter: drive (0 or 1)
     DriveMotorStatus(usize, DriveStatus),
-    // Drive (0 or 1), phase80
-    PhaseUpdate(usize, u8),
     // Whenever the RGB mode is changed
     RgbModeUpdate(u8),
+    // Breakpoint at the address specified was hit
+    BreakpointWasHit(u16),
+    // Disk inserted in a drive
+    DiskInserted(usize, Option<DiskInfo>),
+    HardDriveInserted(usize, Option<DiskInfo>),
+    Exit,
 }
 
 #[derive(Default)]
@@ -53,9 +59,9 @@ pub struct SetMemoryMsg {
     pub bytes: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum CpuStateMsg {
-    Running, Paused,
+    Running, Paused, Step, Rebooting, Exit,
 }
 
 #[derive(Default)]
@@ -100,8 +106,8 @@ pub enum ToCpu {
     Reboot,
     /// Save $2000 to a file
     SaveGraphics,
-    /// Drive number (0 or 1), path
-    LoadDisk(usize, DiskInfo),
+    /// Bool: is_hard_drive, Drive number (0 or 1), path
+    LoadDisk(bool, usize, DiskInfo),
     /// Make disk write protected
     LockDisk(usize),
     /// Make disk writable

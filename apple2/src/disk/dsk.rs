@@ -6,7 +6,7 @@ use crate::disk::bit_stream::{AreaType, BitStream, BitStreams};
 use crate::disk::disk::PDisk;
 use crate::disk::disk_controller::*;
 use crate::disk::disk_info::{DiskInfo, DiskType};
-use crate::ui::ui::ui_log;
+use crate::ui_log;
 
 #[derive(Clone)]
 pub struct Dsk {
@@ -40,7 +40,7 @@ impl Dsk {
                 bit_streams: Default::default(),
             })
         } else {
-            let mut file = File::open(filename).unwrap();
+            let mut file = File::open(filename).map_err(|e| e.to_string())?;
             let mut buffer: Vec<u8> = Vec::new();
             file.read_to_end(&mut buffer).unwrap();
             Dsk::bytes_to_bit_streams(filename, &buffer)

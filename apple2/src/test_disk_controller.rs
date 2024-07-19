@@ -1,6 +1,7 @@
+use std::sync::{Arc, Mutex, RwLock};
 use cpu::memory::Memory;
 use crate::apple2_cpu::EmulatorConfigMsg;
-use crate::create_apple2;
+use crate::{create_apple2};
 use crate::disk::disk_controller::{DiskController};
 use crate::disk::disk_info::DiskInfo;
 use crate::disk::dsk::Dsk;
@@ -147,7 +148,8 @@ fn test_encoded_data() {
 
 // #[test]
 fn test_boot_sequence() {
-    let mut computer = create_apple2::<Apple2Memory>(None, None, None, [None, None],
+    let mut computer = create_apple2(
+        None, None, None, [None, None],
         EmulatorConfigMsg::default(), None);
     println!("Created computer");
     computer.cpu.cpu.pc = 0xc65c;

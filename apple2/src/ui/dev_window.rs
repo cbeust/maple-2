@@ -1,10 +1,8 @@
 use crossbeam::channel::Sender;
-use eframe::egui::{Align, Frame, Layout, TextEdit, TextStyle, Ui, Vec2};
 use crate::messages::ToCpu::{GenerateDisassembly, GetMemory, TraceStatus};
 use crate::messages::{GenerateDisassemblyMsg, ToCpu, TraceStatusMsg};
 use crate::messages::ToUi::RgbModeUpdate;
 use crate::ui::soft_switches::{SOFT_SWITCHES, SoftSwitch};
-use crate::ui::ui::MyEguiApp;
 
 impl MyEguiApp {
     pub(crate) fn create_dev_window(&mut self, ui: &mut Ui) {

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::memory::{DefaultMemory, Memory};
 use crate::cpu::{Cpu, RunStatus };
 use std::sync::mpsc::{Sender};
@@ -56,15 +57,15 @@ pub(crate) fn create_cpu<T: Memory>(pc: u16, m: T) -> Cpu<T> {
     result
 }
 
-pub(crate) fn run_emulator<T: Memory>(_: Sender<CpuMessage>, debug_asm: bool) -> RunStatus {
+pub(crate) fn run_emulator<T: Memory>(_: Sender<CpuMessage>, _debug_asm: bool) {
     let m = DefaultMemory::new_with_file("6502_functional_test.bin");
-    create_cpu(0x400, m).run(Config::default())
+    create_cpu(0x400, m).run(Config::default(), &HashSet::new());
 }
 
 // pub fn _start_emulator() -> (Arc<RwLock<Vec<u8>>>, Receiver<CpuMessage>) {
 //     let mut m: Vec<u8> = Vec::new();
 //     for _ in 0..Memory::MEMORY_SIZE { m.push(0) }
-//     let memory: Arc<RwLock<Vec<u8>>> = Arc::new(RwLock::new(m));
+//     let memory: Arc<RwLock<Vec<u8>>> = Arc::new(Mutex::new(m));
 //     let (tx, rx) = mpsc::channel::<CpuMessage>();
 //     // let mem2 = Memory::new_with_file("6502_functional_test.bin", None);
 //     // let arc_mem: Arc<Mutex<Memory>> = Arc::new(Mutex::new(mem2));

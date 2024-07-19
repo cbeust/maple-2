@@ -1,3 +1,58 @@
+## SmartPort
+
+Not really. You need three things in the CX00 page:
+Enough bytes to pass a card ID check.
+https://github.com/badvision/lawless-legends/blob/41d3ccce650a242a2be2182974d38419[…]ce/src/main/java/jace/hardware/massStorage/CardMassStorage.java
+
+2. The disk capacity (in blocks)
+3. The offsets of where your smart port routines can be accessed in your firmware.
+   2 and 3 are implemented here:
+   https://github.com/badvision/lawless-legends/blob/41d3ccce650a242a2be2182974d38419[…]ce/src/main/java/jace/hardware/massStorage/CardMassStorage.java
+   I get around the other needs by simply writing my own “Boot 0” loader if C700 is executed directly. You basically
+   just load the first block at 800 and JMP to
+   it. https://github.com/badvision/lawless-legends/blob/41d3ccce650a242a2be2182974d38419[…]ols/jace/src/main/java/jace/hardware/massStorage/LargeDisk.java
+   If you want to implement your own virtual block emulation, it gets tricky because you have to deal with prodos file
+   structures. I do a read-only thing that can mimic a block drive but with a folder of regular files — but I don’t
+   advertise the feature because it’s kind of hard to get working properly. You need all the files to have ciderpress
+   style names with the A$ offsets in the file names. (edited)
+
+## Sound
+
+Brendan:
+
+ok so there ’s a very easy “cheap” way to do speaker sound. You just count the number of times the speaker toggles in a
+given interval (it’s about 22-23 cycles per 44.1khz sample, but anyway you can just divide and round, etc) — the number
+of times the speaker is toggled is multiplied by a volume (say, 400) and then that is the next audio sample to output.
+When you do this, the sound output itself is a blocking thing so as you output sound it will force emulator to time at
+the 1mhz because it will block for audio buffers to free up at some point. But basically, that’s all you need for
+speaker sound.
+
+https://github.com/badvision/jace/blob/main/src/main/java/jace/apple2e/Speaker.java
+
+
+
+## List of WOZ disks that require FLUX support
+
+https://archive.org/details/wozaday_Bandits
+https://archive.org/details/wozaday_Cyclod
+https://archive.org/details/wozaday_Fly_Wars
+https://archive.org/details/wozaday_Jellyfish
+https://archive.org/details/wozaday_Lemmings
+https://archive.org/details/wozaday_Minotaur
+https://archive.org/details/wozaday_Return_of_Heracles
+
+## Crates for concurrent access
+
+- [left-right](https://lib.rs/crates/left-right)
+Left-right is a concurrency primitive for high concurrency reads over a single-writer data structure. The primitive
+keeps two copies of the backing data structure, one that is accessed by readers, and one that is access by the (single)
+writer. This enables all reads to proceed in parallel with minimal coordination, and shifts the coordination overhead to
+the writer. In the absence of writes, reads scale linearly with the number of cores.
+
+
+- [https://docs.rs/watch/latest/watch/](Watch)
+This crate provides a synchronous message passing channel that only retains the most recent value.
+
 ## Disk Controller
 
 From the WOZ spec:

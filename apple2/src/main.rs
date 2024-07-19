@@ -31,30 +31,34 @@ mod disk {
 
 
 mod ui {
-    pub mod ui;
-    pub mod container;
     pub mod soft_switches;
-    pub mod nibble_window;
-    pub mod drives_window;
-    pub mod debugger_window;
-    pub mod disks_window;
-    pub mod memory_window;
-    pub mod dev_window;
     pub mod text_screen;
-    pub mod graphics_screen;
     pub mod hires_screen;
-    pub mod floppy_window;
     mod test_graphics;
 
+    pub mod iced {
+        pub mod ui_iced;
+        pub mod message;
+        mod disks_tab;
+        mod nibbles_tab;
+        mod memory_view;
+        mod style;
+        mod tab;
+        mod keyboard;
+        mod debugger_window;
+        mod main_window;
+        pub mod shared;
+        mod disk_tab;
+        mod drives_view;
+    }
 }
 
 
 use cpu::messages::ToLogging;
-use std::fs::File;
-use std::io::Write;
 use crossbeam::channel::{Receiver, Sender, unbounded};
 use std::{fs, thread};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 use eframe::egui::{ViewportBuilder};
 use cpu::cpu::Cpu;
@@ -70,7 +74,7 @@ use log4rs::Handle;
 use log::LevelFilter;
 use notify::{RecursiveMode};
 use notify_debouncer_mini::{DebouncedEventKind, new_debouncer};
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 use cpu::config::{Config};
 use cpu::logging_thread::Logging;
 use crate::apple2_cpu::{AppleCpu, EmulatorConfigMsg};
@@ -81,7 +85,10 @@ use crate::disk::disk_info::DiskInfo;
 use crate::memory::{Apple2Memory};
 use crate::messages::*;
 use crate::messages::ToCpu::FileModified;
-use crate::ui::ui::{MyEguiApp, ui_log};
+use crate::ui::iced::message::InternalUiMessage;
+use crate::ui::iced::shared::Shared;
+// use crate::ui::ui_egui::{MyEguiApp};
+use crate::ui::iced::ui_iced::main_iced;
 
 // pub fn is_text_hole(address: u16) -> bool {
 //         (address >= 0x478 && address <= 0x47f) ||
@@ -94,10 +101,9 @@ use crate::ui::ui::{MyEguiApp, ui_log};
 //         (address >= 0x7f8 && address <= 0x7ff)
 // }
 
-pub fn text_coordinates_to_address(x: u8, y: u8, page2: bool) -> u16 {
-    let mut result = TEXT_MODE_ADDRESSES[y as usize] + x as u16;
-    if page2 { result += 0x400 };
-    result
+fn main() {
+    start(true /* egui */);
+    // start(false /* iced */);
 }
 
 #[derive(Parser)]
@@ -133,8 +139,10 @@ pub fn configure_log(config: &Config, remove: bool) -> log4rs::Config {
             if config.debug_asm {
             println!("Tracing to stdout");
             }
+            // https://docs.rs/log4rs/1.0.0/log4rs/encode/pattern/index.html#formatters
             let appender = ConsoleAppender::builder()
-                .encoder(Box::new(PatternEncoder::new("{m}\n")))
+                .encoder(Box::new(PatternEncoder::new("{d}: {m}\n")))
+                // .encoder(Box::new(PatternEncoder::new("{d(%H:%M:%SS)}: {m}\n")))
                 .build();
             ("stdout", Box::new(appender))
         };
@@ -181,7 +189,7 @@ fn t() {
     }
 }
 
-fn main() -> eframe::Result<()> {
+fn start(egui: bool) -> eframe::Result<()> {
     let config_file = ConfigFile::new();
     let mut config = Config {
         emulator_speed_hz: config_file.emulator_speed_hz(),
@@ -237,20 +245,27 @@ fn main() -> eframe::Result<()> {
             to_di(config_file.drive_2()),
         ]
     };
-    let emulator_config = EmulatorConfigMsg::new(config.copy());
+    let emulator_config = EmulatorConfigMsg::new(config.copy(), config_file.clone());
     let (logging_sender, logging_receiver): (Sender<ToLogging>, Receiver<ToLogging>) = unbounded();
 
+    Shared::set_drive(0, disks[0].clone());
+    Shared::set_drive(1, disks[1].clone());
+
     if benchmark {
-        let mut apple2 = create_apple2::<Apple2Memory>(Some(sender), Some(logging_sender),
+        let mut apple2 = create_apple2(
+            Some(sender), Some(logging_sender),
             Some(receiver2), disks, emulator_config.clone(), None);
         apple2.cpu.run();
     } else {
         let sender4 = sender2.clone();
+        let config_file_minifb = config_file.clone();
+
         //
         // Spawn the logging thread
         //
         let (sender_to_cpu_ui, receiver_to_cpu_ui) = unbounded();
         let config3 = config.clone();
+        let config4 = config.clone();
         let _ = thread::Builder::new().name("Maple // - Logger".to_string()).spawn(move || {
             Logging::new(config3, logging_receiver, Some(sender_to_cpu_ui)).run();
         });
@@ -258,13 +273,16 @@ fn main() -> eframe::Result<()> {
         //
         // Spawn the emulator
         //
-        let config2 = emulator_config.clone();
         let _ = thread::Builder::new().name("Maple // - Emulator".to_string()).spawn(move || {
-            let mut rebooting = true;
-            while rebooting {
-                let mut apple2 = create_apple2::<Apple2Memory>(Some(sender.clone()),
+            let mut state = CpuStateMsg::Running;
+            while state != CpuStateMsg::Exit { // running != CpuStateMsg::Paused {
+                let ecm = EmulatorConfigMsg {
+                    config: config4.clone(),
+                    config_file: ConfigFile::new(),
+                };
+                let mut apple2 = create_apple2(Some(sender.clone()),
                     Some(logging_sender.clone()),
-                    Some(receiver2.clone()), disks.clone(), config2.clone(), Some(handle.clone()));
+                    Some(receiver2.clone()), disks.clone(), ecm, Some(handle.clone()));
                 // if audit {
                 //     apple2.cpu.cpu.memory.load_file("/Users/Ced/rust/a2audit/audit/audit.o", 0x6000, 0, 0, true);
                 //     apple2.cpu.cpu.pc = 0x6000;
@@ -272,9 +290,17 @@ fn main() -> eframe::Result<()> {
                 for wf in WATCHED_FILES.iter() {
                     sender4.send(FileModified(wf.clone())).unwrap();
                 }
-                rebooting = apple2.cpu.run();
+                while state != CpuStateMsg::Rebooting && state != CpuStateMsg::Exit {
+                    state = apple2.cpu.run();
+                }
+                println!("Exiting loop, status: {:#?}", state);
                 disks = apple2.disks();
+                if state != CpuStateMsg::Exit {
+                    state = CpuStateMsg::Running;
+                }
             }
+            let _ = logging_sender.send(ToLogging::Exit);
+            println!("Emulator exiting");
         });
 
         //
@@ -282,8 +308,8 @@ fn main() -> eframe::Result<()> {
         //
         let (sender_minifb, receiver_minifb): (Sender<ToMiniFb>, Receiver<ToMiniFb>) = unbounded();
         #[cfg(feature = "minifb")]
-        let _ = thread::Builder::new().name("Apple ][ emulator - minifb".to_string()).spawn(move || {
-            mini_fb::main_minifb(receiver_minifb);
+        let _ = thread::Builder::new().name("Maple // - minifb".to_string()).spawn(move || {
+            mini_fb::main_minifb(receiver_minifb, &config_file);
         });
 
         //
@@ -291,7 +317,7 @@ fn main() -> eframe::Result<()> {
         //
         let config2 = config.copy();
         let sender3 = sender2.clone();
-        let _ = thread::Builder::new().name("Apple ][ file watcher".to_string()).spawn(move || {
+        let _ = thread::Builder::new().name("Maple // - File watcher".to_string()).spawn(move || {
             // Add a path to be watched. All files and directories at that path and
             // below will be monitored for changes.
             let (tx, rx) = std::sync::mpsc::channel();
@@ -333,20 +359,13 @@ fn main() -> eframe::Result<()> {
         //
         // Main UI
         //
-        let native_options = eframe::NativeOptions {
-            viewport: ViewportBuilder::default()
-                .with_inner_size([MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT]),
-                ..Default::default()
-        };
-        _ = eframe::run_native("Cedric's Apple ][ Emulator", native_options,
-           Box::new(|cc| Box::new(
-               MyEguiApp::new(config_file, cc, sender2, receiver, Some(receiver_to_cpu_ui),
-                   Some(sender_minifb)))));
+        // if true {
+        println!("Running iced");
+        _ = main_iced(Some(sender2), receiver, Some(sender_minifb),
+            config_file_minifb.clone());
     }
     Ok(())
 }
-
-
 
 struct Apple2 {
     cpu: AppleCpu,
@@ -358,14 +377,19 @@ impl Apple2 {
     }
 }
 
-pub(crate) fn create_apple2<T: Memory>(sender: Option<Sender<ToUi>>,
-        logging_sender: Option<Sender<ToLogging>>,
-        receiver: Option<Receiver<ToCpu>>,
-        disk_infos: [Option<DiskInfo>; 2],
-        config: EmulatorConfigMsg,
-        handle: Option<Handle>)
--> Apple2 {
-    let mut m = Apple2Memory::new(disk_infos, sender.clone());
+pub(crate) fn create_apple2(
+    sender: Option<Sender<ToUi>>,
+    logging_sender: Option<Sender<ToLogging>>,
+    receiver: Option<Receiver<ToCpu>>,
+    disk_infos: [Option<DiskInfo>; 2],
+    config: EmulatorConfigMsg,
+    handle: Option<Handle>)
+-> Apple2
+{
+    let di0 = config.config_file.hard_drive_1().map(|s| DiskInfo::n(&s));
+    let di1 = config.config_file.hard_drive_2().map(|s| DiskInfo::n(&s));
+
+    let mut m = Apple2Memory::new(disk_infos, [di0, di1], sender.clone());
 
     m.load_roms();
 
@@ -376,3 +400,11 @@ pub(crate) fn create_apple2<T: Memory>(sender: Option<Sender<ToUi>>,
     Apple2 { cpu }
 }
 
+/// Will need to log this into the UI somewhere
+pub fn ui_log(s: &str) {
+    println!("{}", s);
+}
+
+pub fn soft_switch(memory: &[u8], address: u16) -> bool {
+    (memory[address as usize] & 0x80) != 0
+}

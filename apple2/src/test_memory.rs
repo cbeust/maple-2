@@ -5,7 +5,7 @@ use crate::{clear_soft_switch, set_soft_switch};
 
 // #[test]
 pub fn test_set_and_reset_switches() {
-    let mut m = Apple2Memory::new([None, None], None);
+    let mut m = Apple2Memory::new([None, None], [None, None], None);
     struct Test {
         on: u16,
         off: u16,
@@ -85,7 +85,7 @@ pub fn test_high_ram() {
 
     for (index, test) in tests.iter().enumerate() {
         let mut m = {
-            let mut m = Apple2Memory::new([None, None], None);
+            let mut m = Apple2Memory::new([None, None], [None, None], None);
             m.memories[0][D] = 0x53;
             m.memories[0][F] = 0x60;
             m.high_ram[0].banks[0][D - 0xd000] = 0x11;
@@ -134,7 +134,7 @@ pub fn test_high_ram() {
 
 // #[test]
 pub fn test_lang_card() {
-    let mut m = Apple2Memory::new([None, None], None);
+    let mut m = Apple2Memory::new([None, None], [None, None], None);
     m.get(0xc08b);
     m.get(0xc08b);
     m.set(D as u16, 0x44);
@@ -197,7 +197,7 @@ pub fn test_aux_mem() {
 
     fn create_mem() -> Apple2Memory {
         // Initialize aux to $3 and main to $1
-        let mut m = Apple2Memory::new([None, None], None);
+        let mut m = Apple2Memory::new([None, None], [None, None], None);
         m.load_roms();
         m
     }

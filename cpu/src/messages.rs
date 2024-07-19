@@ -29,7 +29,8 @@ impl LogMsg {
 
 pub enum ToLogging {
     Log(LogMsg),
-    End
+    End,
+    Exit,
 }
 
 pub enum ToCpuUi {

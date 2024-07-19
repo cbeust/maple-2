@@ -1,6 +1,9 @@
 use std::fs;
+use std::fs::File;
+use std::io::Read;
 use crossbeam::channel::Sender;
 pub use cpu::memory::{Memory, DefaultMemory};
+use crate::alog::alog;
 use crate::constants::PC;
 use crate::disk::disk_controller::{DiskController};
 use crate::disk::disk_info::DiskInfo;
@@ -8,8 +11,9 @@ use crate::debug::hex_dump_at;
 use crate::memory_constants::*;
 use crate::messages::ToUi;
 use crate::messages::ToUi::RgbModeUpdate;
-use crate::roms::{DISK2_ROM};
+use crate::roms::{DISK2_ROM, SMARTPORT_ROM};
 use crate::send_message;
+use crate::ui::iced::shared::Shared;
 
 const MAIN: usize = 0;
 const AUX: usize = 1;
@@ -91,6 +95,11 @@ pub struct Apple2Memory {
     slot_c8_status: bool,
 
     pub(crate) disk_controller: DiskController,
+
+    last_prodos_block_read: Option<u16>,
+    prodos_block: [u8; 512],
+    prodos_block_index: usize,
+    vbl: u8,
 }
 
 impl Apple2Memory {
@@ -100,8 +109,27 @@ impl Apple2Memory {
     }
 }
 
+#[derive(Default)]
+pub struct HardDrive {
+    pub disk_info: Option<DiskInfo>,
+}
+
+impl HardDrive {
+    fn new(path: Option<String>) -> Self {
+        let disk_info = path.map(|s| DiskInfo::n(&s));
+        Self { disk_info }
+    }
+}
+
 impl Apple2Memory {
-    pub(crate) fn new(disk_infos: [Option<DiskInfo>; 2], sender: Option<Sender<ToUi>>) -> Self {
+    pub(crate) fn new(
+        disk_infos: [Option<DiskInfo>; 2],
+        hard_drives: [Option<DiskInfo>; 2],
+        sender: Option<Sender<ToUi>>) -> Self
+    {
+        Shared::set_hard_drive(0, hard_drives[0].clone());
+        Shared::set_hard_drive(1, hard_drives[1].clone());
+
         Self {
             // memory2: Memory2::new(),
             sender: sender.clone(),
@@ -118,6 +146,10 @@ impl Apple2Memory {
             dhg_iou_disabled: false,
             dhg_rgb_mode: 0,
             dhg_rgb_flags: 0,
+            last_prodos_block_read: None,
+            prodos_block: [0; 512],
+            prodos_block_index: 0,
+            vbl: 0,
         }
     }
 
@@ -132,7 +164,38 @@ impl Apple2Memory {
 
         // Disk2 at $C600 in slot (aux mem)
         self.load_bytes(&DISK2_ROM, 0xc600, 0 /* skip */, 0x100, false /* aux mem */);
+
+        // Smartport in $C700
+        // let bytes2 = include_bytes!("c:\\Users\\Ced\\Downloads\\hddrvr-v2.bin");
+        // let bytes = include_bytes!("c:\\Users\\Ced\\Downloads\\HDDRVR.BIN");
+        // self.load_bytes(bytes, 0xc700, 0 /* skip */, 0x100, false /* aux mem */);
+        if Shared::hard_drive(0).is_some() {
+            self.load_bytes(&SMARTPORT_ROM, 0xc700, 0 /* skip */, 0x100, false /* aux mem */);
+        }
     }
+
+    pub(crate) fn load_disk_from_file(&mut self, is_hard_drive: bool, drive_number: usize,
+        disk_info: DiskInfo)
+    {
+        if is_hard_drive {
+            Shared::set_hard_drive(drive_number, Some(disk_info.clone()));
+            send_message!(&self.sender, ToUi::HardDriveInserted(drive_number, Some(disk_info)));
+        } else {
+            self.disk_controller.load_disk_from_file(drive_number, disk_info);
+        }
+    }
+
+    // pub fn load_smartport(&mut self, load: bool) {
+    //     if load {
+    //         self.load_bytes(&SMARTPORT_ROM, 0xc700, 0 /* skip */, 0x100, false /* aux mem */);
+    //     } else {
+    //         self.memories[0][0xc700] = 0;
+    //         self.memories[0][0xc701] = 0;
+    //         self.memories[0][0xc702] = 0;
+    //         self.memories[0][0xc703] = 0;
+    //         self.memories[0][0xc704] = 0;
+    //     }
+    // }
 
     fn log_mem(&self, address: u16, s: &str) {
         log::info!("  {} | {}", s,
@@ -143,13 +206,55 @@ impl Apple2Memory {
             ))
     }
 
+    /// Smartport: read the block_number in our holding 512 byte buffer.
+    /// That buffer will then be returned one byte at a time each time $C0F8 is read
+    pub fn read_block(&mut self, block_number: u16) {
+        let filename1 = "d:\\Apple Disks\\Total.Replay.hdv";
+        let filename2 = "C:\\Users\\Ced\\Downloads\\jon_relays_stuff.hdv";
+        let filename3 = "D:\\Apple disks\\jon relay's desktop 2.0.hdv";
+
+        let filename = filename1;
+
+        if let Some(disk_info) = &Shared::hard_drive(0) {
+            let mut file = File::open(&disk_info.path).expect("Open the file");
+            let metadata = fs::metadata(filename).expect("Read metadata");
+            let mut content: Vec<u8> = vec![0; metadata.len() as usize];
+            file.read(&mut content).expect("Read the content of the file");
+            // alog(&format!("Reading content of block {block_number} at ${:04X}", self.word(0x44)));
+            // println!("Reading content of block {block_number} at ${:04X}", self.word(0x44));
+            let offset = block_number as usize * 512;
+            for i in 0..512 {
+                self.prodos_block[i] = content[i + offset as usize];
+            }
+            // println!("Read content of block {block_number} at ${:04X}", self.word(0x44));
+            self.last_prodos_block_read = Some(block_number);
+            self.prodos_block_index = 0;
+
+            Shared::set_block_number(0, block_number);
+        }
+    }
+
     /// Handle both get and set in the same function since we sometimes do the same thing
     /// for both accesses. Return `None` if we're setting a value, `Some(value)` if it's
     /// a memory get.
     fn get_or_set(&mut self, address: u16, value: u8, get: bool) -> Option<u8> {
-        // if (0xc001..0xc080).contains(&address) {
-        //     println!("Soft switch: {get} {:04X}", address);
-        // }
+
+        // SmartPort. $C0F8 is read repeatedly to fetch bytes from the mass storage.
+        // To emulate it, we make sure that the block that we have loaded is the same
+        // as the one requested ($46-$47) and if not, we load it.
+        if address == 0xc0f8 {
+            let block_number = self.word(0x46);
+            if self.last_prodos_block_read.is_none() {
+                self.read_block(block_number);
+            }
+            match self.last_prodos_block_read {
+                Some(block) if block != block_number => {
+                    self.read_block(block_number);
+                }
+                _ => {}
+            }
+        }
+
         let mut result: Option<u8> = None;
         let set = ! get;
 
@@ -223,6 +328,21 @@ impl Apple2Memory {
                 } else {
                     self.memories[index][address as usize] = value;
                     result = Some(0);
+                }
+            }
+            0xc019 => {
+                // VBL
+                // What it should be:
+                // 50Hz (PAL): Every 20_280 cycles, the VBL should be on 7800 cycles
+                // 60Hz (PAL): Every 17_030 cycles, the VBL should be on (7800?) cycles
+                // Start of the VBL should be the time to generate the display
+                // VBL is on for 17030 - ((25+40)*192) = 12_480 cycles for NTSC.
+                // VBL starts at 12480 and ends at 17029. Then a new frame begins
+                result = Some(self.vbl);
+                if self.vbl >= 0x80 {
+                    self.vbl = 0;
+                } else {
+                    self.vbl = 0x80;
                 }
             }
             // Both R and W
@@ -325,6 +445,24 @@ impl Apple2Memory {
             ALT_CHAR_ON if set => { set_soft_switch!(self, ALT_CHAR_STATUS); }
             // 0xc010 => if set { self.memories[MAIN][0xc000] &= 0x7f; }
 
+            0xc0f8 => {
+                if self.prodos_block_index >= 512 {
+                    alog(&format!("Exceeding index, PC:{:04X} last block read:{:04X} block#:{:04X} memory:{:04X}",
+                        *PC.read().unwrap(),
+                        self.last_prodos_block_read.unwrap_or(0),
+                        self.word(0x46),
+                        self.word(0x44),
+                    ));
+                    self.prodos_block_index = 0;
+                    // self.prodos_block_index = 511;
+                    // let next_block = self.last_prodos_block_read.unwrap() + 1;
+                    // self.last_prodos_block_read = Some(next_block);
+                    // let b = self.word(0x46);
+                    // self.maybe_read_block(b);
+                }
+                result = Some(self.prodos_block[self.prodos_block_index]);
+                self.prodos_block_index += 1;
+            }
             0xc100..=0xcffe => {
                 // Sather, Understanding the Apple ][, 5-28
                 let cx = is_set!(&self, INTERNAL_CX_STATUS);
@@ -445,6 +583,7 @@ impl Apple2Memory {
                 }
             }
             0xc010 => {
+                // Clear the keyboard location, $C000
                 let value = self.memories[MAIN][0xc000] & 0x7f;
                 if let Some(sender) = &self.sender {
                     sender.send(ToUi::KeyboardStrobe).unwrap();
@@ -538,13 +677,14 @@ impl Apple2Memory {
         }
     }
 
-    pub(crate) fn load_bytes(&mut self, v: &[u8], address: u16, skip: u16, max: u16, main: bool) {
+    // Transfer bytes from the buffer into memory at the address, while respecting skip and max
+    pub(crate) fn load_bytes(&mut self, buffer: &[u8], address: u16, skip: u16, max: u16, main: bool) {
         // println!("Loading {:04X} bytes at address {:04X}", max, address + skip);
         // let v = fs::read(file_name).expect(&format!("Couldn't load file {} in memory", file_name));
         let mut written: u16 = 0;
         let index = if main { 0 } else { 1 };
         // self.memory2.load_bytes(&v, address, skip, max);
-        v.iter().enumerate().for_each(|(i, byte)| {
+        buffer.iter().enumerate().for_each(|(i, byte)| {
             if i as u16 >= skip && (max == 0 || written < max) {
                 let a = address.wrapping_add(i as u16) as usize;
                 self.memories[index][a] = *byte;

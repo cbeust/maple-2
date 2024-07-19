@@ -161,7 +161,8 @@ impl Disassemble {
         }
     }
 
-    pub fn disassemble_multiple(memory: &Vec<u8>, operands: &[Operand], mut index: u16, line_count: u8)
+    pub fn disassemble_multiple(memory: &Vec<u8>, operands: &[Operand], mut index: u16,
+        line_count: u16)
             -> Vec<DisassemblyLine> {
         let mut result: Vec<DisassemblyLine> = Vec::new();
         for _ in 0..line_count {

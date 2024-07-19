@@ -71,25 +71,6 @@ impl DefaultMemory {
             buffer,
         }
     }
-
-    pub(crate) fn new_with_vec(buffer: Vec<u8>) -> impl Memory {
-        let buffer =
-            if buffer.len() < 0x200 {
-                // The memory needs to be at least $200 big since the stack is $100-$1FF,
-                // so create a $200 big memory and copy the passed buffer into it
-                let mut b = vec![0; 0x200];
-                for (i, x) in buffer.iter().enumerate() {
-                    b[i] = *x;
-                }
-                b
-            } else {
-                // The passed buffer is big enough, use it as is
-                buffer
-            };
-        DefaultMemory {
-            buffer,
-        }
-    }
 }
 
 

@@ -1,15 +1,15 @@
-
+use std::collections::HashSet;
 use crossbeam::channel::*;
 use std::time::Instant;
 use cpu::config::Config;
-use cpu::cpu::RunStatus;
+use cpu::cpu::{RunStatus, StopReason};
 use cpu::memory::Memory;
 use crate::apple2_cpu::EmulatorConfigMsg;
 use crate::create_apple2;
 use crate::memory::Apple2Memory;
 use crate::messages::{ToCpu, ToUi};
 
-// #[test]
+#[test]
 fn test_cycle_count() {
     let a = 4;
     let y = 0xff;
@@ -45,17 +45,17 @@ fn test_cycle_count() {
     let start = Instant::now();
     let mut steps = 0;
     let config = Config::default();
-    let mut status = apple2.cpu.cpu.step(&config);
+    let mut status = apple2.cpu.cpu.step(&config, &HashSet::new());
     let mut total_cycles: u128 = 0;
     while matches!(status, RunStatus::Continue(_)) {
         match status {
             RunStatus::Continue(cycles) => total_cycles += cycles as u128,
             _ => {}
         }
-        status = apple2.cpu.cpu.step(&config);
+        status = apple2.cpu.cpu.step(&config, &HashSet::new());
         steps += 1;
         if apple2.cpu.cpu.pc == (p.len() - 1) as u16 {
-            status = RunStatus::Stop(true, "Normal stop".into(), 0);
+            status = RunStatus::Stop(StopReason::Ok, 0);
         }
     }
     let elapsed = start.elapsed().as_millis();

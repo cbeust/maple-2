@@ -1,5 +1,4 @@
 use crate::addressing_type::AddressingType;
-use crate::constants::{OPERANDS_6502, OPERANDS_65C02};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Operand {

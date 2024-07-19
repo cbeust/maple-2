@@ -1,4 +1,4 @@
-[package]
+    [package]
 name = "apple2"
 version = "0.1.0"
 edition = "2021"
@@ -14,7 +14,9 @@ minifb = []
 
 [dependencies]
 cpu = { path = "../cpu" }
-eframe = "0.25.0"
+
+eframe = "0.27.2"
+
 float_eq = "1.0.1"
 clap = {  version = "4.4.6", features = ["derive"] }
 crossbeam = "0.8.2"
@@ -25,14 +27,18 @@ lazy_static = "1.4.0"
 notify = "6.1.1"
 notify-debouncer-mini = "0.4.1"
 rand = "0.8.5"
-rfd = "0.13.0"
+rfd = "0.14.1"
 ignore = "0.4.22"
-itertools = "0.12.0"
-minifb = "0.25.0"
-egui_virtual_list = "0.1.0"
+itertools = "0.13.0"
+minifb = "0.27.0"
 rayon = { version = "1.8.1", features = [] }
 dirs = "5.0.1"
 config = "0.14.0"
 serde = "1.0.196"
 serde_json = "1.0.107"
 dyn-clone = "1.0.17"
+
+iced = {  git = "https://github.com/iced-rs/iced.git", features = [ "canvas", "tokio" ] }
+iced_aw = { git = "https://github.com/iced-rs/iced_aw.git", features = ["tabs"], branch = "Beta" }
+
+tokio = {  version = "1.38.0" }

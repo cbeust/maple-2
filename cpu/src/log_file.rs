@@ -52,8 +52,8 @@ impl LogFile {
                 match c.1.recv() {
                     Ok(m) => {
                         match m {
-                            LogMessage::LogLine(l) => {
-                                LogFile::receive_log(&mut buffer, FILENAME, &l);
+                            LogMessage::LogLine(_) => {
+                                LogFile::receive_log(&mut buffer, FILENAME);
                             }
                         }
                     }
@@ -69,7 +69,7 @@ impl LogFile {
         self.tx.send(LogMessage::LogLine(s));
     }
 
-    fn receive_log(buffer: &mut Vec<String>, file_name: &str, s: &str) {
+    fn receive_log(buffer: &mut Vec<String>, file_name: &str) {
         // buffer.push(s.to_string());
         if buffer.len() > 10_000 {
             match fs::OpenOptions::new().append(true).open(&file_name) {

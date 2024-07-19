@@ -1,83 +1,9 @@
-use eframe::egui::Ui;
-use crate::constants::*;
-use crate::memory_constants::{ALT_CHAR_STATUS, EIGHTY_COLUMNS_STATUS};
-use crate::{is_set, text_coordinates_to_address};
-use crate::ui::hires_screen::AColor;
-use crate::ui::text_screen::TextMode::{Flashing, Inverse, Normal};
-use crate::ui::ui::{DrawCommand, MyEguiApp};
-
 #[derive(PartialEq)]
 enum TextMode {
     Normal, Inverse, Flashing
 }
 
-impl MyEguiApp {
-    pub(crate) fn calculate_text(&mut self, is_80: bool, mixed: bool, page2: bool, alt_charset: bool)
-            -> Vec<DrawCommand> {
-        let mut result: Vec<DrawCommand> = Vec::new();
-        let start = if mixed { TEXT_HEIGHT - 4 } else { 0 };
-        for y in start..TEXT_HEIGHT {
-            for x in 0..if is_80 { TEXT_WIDTH * 2 } else { TEXT_WIDTH } {
-                let address: usize;
-                let mut c_a = if is_80 {
-                    let actual_x = x / 2;
-                    address = text_coordinates_to_address(actual_x, y, page2) as usize;
-                    if x % 2 == 0 {
-                        self.cpu.aux_memory[address]
-                    } else {
-                        self.cpu.memory[address]
-                    }
-                } else {
-                    address = text_coordinates_to_address(x, y, page2) as usize;
-                    self.cpu.memory[address]
-                };
-                // if alt_charset {
-                //     c_a = c_a & 0x3f;
-                // }
-                let mag = MAGNIFICATION;
-                let mag_width = if is_80 { mag / 2 } else { mag };
-                for yy in 0..FONT_WIDTH {
-                    let bits = TEXT_ROM[yy as usize + ((c_a as usize) << 3)];
-                    // println!("Drawing byte {:02X}", c_a);
-                    for xx in 0..FONT_HEIGHT {
-                        let pixel = (bits >> xx) & 1;
-                        let color = if pixel == 0 { AColor::White } else { AColor::Black };
-                        let x0: u16 = (x as u16 * 7 + xx as u16) * mag_width;
-                        let y0: u16 = (y as u16 * 8 + yy as u16) * mag;
-                        let x1 = x0 + mag;
-                        let y1 = y0 + mag;
-
-                        // println!("Drawing {},{} - {},{} color: {:#?}", x0, y0, x1, y1, color);
-                        result.push(DrawCommand::Rectangle(x0 as f32, y0 as f32,
-                            x1 as f32, y1 as f32, color));
-                    }
-                }
-                // println!("Done with {},{}", x, y);
-            }
-        }
-
-        result
-    }
-
-    fn draw_character(&self, ui: &Ui, c: char, x: u8, y: u8, mode: TextMode, forty: bool) {
-        // let (_, rectangles) = self.rasterize(c, forty);
-
-        use TextMode::*;
-        let colors = match mode {
-            Normal => { (AColor::Green, AColor::Black) }
-            Inverse => { (AColor::Black, AColor::Green) }
-            Flashing => {
-                let ms = (START.get().unwrap().elapsed().as_millis()) % 1000;
-                let v = (ms * FLASH_FREQUENCY_HZ as u128 / 1000) as u16;
-                if (v % 2) == 0 { (AColor::Green, AColor::Black) }
-                else { (AColor::Black, AColor::Green) }
-            }
-        };
-        // self.draw_single_character(ui, x, y, &rectangles, colors.0, colors.1, forty)
-    }
-}
-
-const TEXT_ROM: [u8; 4096] = [
+pub const TEXT_ROM: [u8; 4096] = [
     0x1c, 0x22, 0x2a, 0x3a, 0x1a, 0x02, 0x3c, 0x00, 0x08, 0x14, 0x22, 0x22,
     0x3e, 0x22, 0x22, 0x00, 0x1e, 0x22, 0x22, 0x1e, 0x22, 0x22, 0x1e, 0x00,
     0x1c, 0x22, 0x02, 0x02, 0x02, 0x22, 0x1c, 0x00, 0x1e, 0x22, 0x22, 0x22,

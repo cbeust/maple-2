@@ -5,6 +5,7 @@ use std::fmt;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::borrow::BorrowMut;
+use std::collections::HashSet;
 use crate::memory::{DefaultMemory, Memory};
 use crate::constants::*;
 
@@ -14,7 +15,7 @@ const DEBUG_CYCLES: u128 = u128::MAX; // 0x4FC1A00
 
 const STACK_ADDRESS: u16 = 0x100;
 
-#[derive(Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct StatusFlags {
     _value: u8
 }
@@ -23,12 +24,14 @@ use crate::addressing_type::AddressingType::*;
 
 use std::convert::TryInto;
 use std::fmt::{Display, Formatter};
+use std::ops::ControlFlow::Break;
 use std::process::exit;
 use std::time::Instant;
 use crossbeam::channel::Sender;
 use crate::addressing_type::AddressingType;
 use crate::config::Config;
 use crate::constants;
+use crate::cpu::StopReason::BreakpointHit;
 use crate::disassembly::{Disassemble, RunDisassemblyLine};
 use crate::log_file::log_file;
 use crate::messages::{LogMsg, ToLogging};
@@ -133,6 +136,8 @@ pub struct Cpu<T: Memory> {
     pub p: StatusFlags,
     pub s: u8,
 
+    pub run_status: RunStatus,
+
     pub operands: [Operand; 256],
 
     /// If the previous instruction caused a write, this field contains
@@ -161,13 +166,44 @@ impl<T: Memory> Display for Cpu<T> {
         Ok(())
     }
 }
-#[derive(Clone, Debug, Eq, PartialEq)]
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StopReason {
+    Ok,
+    Error,
+    BreakpointHit,
+    Exit,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RunStatus {
     // Number of cycles
     Continue(u8),
-    // If bool is true, stopping with no error + reason for stopping
-    // The u128 parameter is the number of cycles that were run
-    Stop(bool, String, u128)
+    // u128: the number of cycles that were run
+    Stop(StopReason, u128)
+}
+
+impl Default for RunStatus {
+    fn default() -> Self {
+        Self::Continue(0)
+    }
+}
+
+impl Display for RunStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(if matches!(self, RunStatus::Continue(_)) { "Running" } else { "Stopped" })
+            .unwrap();
+        Ok(())
+    }
+}
+
+impl RunStatus {
+    pub fn cycles(&self) -> u128 {
+        match self {
+            RunStatus::Continue(c) => { *c as u128 }
+            RunStatus::Stop(_, cycles) => { *cycles }
+        }
+    }
 }
 
 impl <T: Memory> Cpu<T> {
@@ -179,6 +215,7 @@ impl <T: Memory> Cpu<T> {
             y: 0,
             pc: 0,
             s: 0xff,
+            run_status: RunStatus::Continue(0),
             p: StatusFlags::new(),
             cycles: 0,
             last_cycles: 0,
@@ -197,64 +234,28 @@ impl <T: Memory> Cpu<T> {
         }
     }
 
-    pub fn step(&mut self, config: &Config) -> RunStatus {
+    pub fn step(&mut self, config: &Config, breakpoints: &HashSet<u16>) {
+        if breakpoints.contains(&self.pc) {
+            self.run_status = RunStatus::Stop(BreakpointHit, 1);
+            return;
+        }
+
         let previous_pc = self.pc;
+
         let opcode = self.memory.get(self.pc);
         let operand = &self.operands[opcode as usize];
         self.pc = self.pc.wrapping_add(operand.size as u16);
-        let cycles = self.next_instruction(previous_pc, config);
-        self.cycles = self.cycles + cycles as u128;
 
-        let stop = RunStatus::Continue(cycles);
-        let result = match stop {
-            RunStatus::Stop(success, ref reason, cycles) => {
-                println!("{}", reason.as_str());
-                RunStatus::Stop(success, reason.to_string(), cycles)
-            },
-            _ => RunStatus::Continue(cycles),
-        };
 
-        result
+        self.next_instruction(previous_pc, config, breakpoints);
+
+        self.cycles = self.cycles + self.run_status.cycles();
     }
 
-    pub fn run(&mut self, config: Config) -> RunStatus {
-        let mut result = self.step(&config);
-        let mut cont = true;
-        while cont {
-            match result {
-                RunStatus::Continue(_) => result = self.step(&config),
-                _ => cont = false,
-            }
+    pub fn run(&mut self, config: Config, breakpoints: &HashSet<u16>) {
+        while matches!(self.run_status, RunStatus::Continue(_)) {
+            self.step(&config, breakpoints)
         }
-        result
-        // while result == RunStatus::Continue {
-        //     result = self.step();
-        // }
-        // result
-
-        // loop {
-        //     let previous_pc = self.pc;
-        //     let opcode = self.memory.get(self.pc) as u16;
-        //     let operand = &OPERANDS[opcode];
-        //     self.pc = (self.pc + operand.size) % 0x10000;
-        //     self.cycles = self.cycles + self.next_instruction(previous_pc) as u128;
-        //
-        //     let stop = if let Some(l) = self.listener.borrow_mut().as_mut() {
-        //         l.on_pc_changed(self)
-        //     } else {
-        //         RunStatus::Continue
-        //     };
-        //
-        //     match stop {
-        //         RunStatus::Stop(success, ref reason, cycles) => {
-        //             result = RunStatus::Stop(success, reason.to_string(), cycles);
-        //             println!("{}", reason.as_str());
-        //             break;
-        //         },
-        //         _ => {}
-        //     }
-        // }
-        // return result;
     }
 
     fn address_value(&mut self, pc: u16, addressing_type: AddressingType) -> (u16, u8) {
@@ -283,9 +284,16 @@ impl <T: Memory> Cpu<T> {
         result
     }
 
-    pub fn next_instruction(&mut self, pc: u16, config: &Config) -> u8 {
+    pub fn next_instruction(&mut self, mut pc: u16, config: &Config, breakpoints: &HashSet<u16>) {
         let max = 10;
         let mut i = 0;
+
+        /// Necessary for SmartPort. This is when we're about to return from the read routine
+        /// in SmartPort and since we simulate it, there can never be any error, so make sure
+        /// we clear the carry.
+        if pc == 0xc7b7 {
+            self.p.set_c(false);
+        }
 
         let opcode = self.memory.get(pc);
 
@@ -784,7 +792,8 @@ impl <T: Memory> Cpu<T> {
                 }
             }
         }
-        return cycles;
+
+        self.run_status = RunStatus::Continue(cycles)
     }
 
     fn tsb_or_rsb(&mut self, pc: u16, addressing_type: AddressingType, is_tsb: bool) -> (Option<u16>, Option<u8>) {

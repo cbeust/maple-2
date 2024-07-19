@@ -11,6 +11,9 @@ use crate::messages::ToUi;
 // pub(crate) const _EMULATOR_PERIOD_MS: u64 =
 //     1000 * _EMULATOR_PERIOD_CYCLES / DEFAULT_EMULATOR_SPEED_HZ;
 
+/// How often we send a CpuDump message to the UI
+pub(crate) const CPU_REFRESH_MS: u128 = 40;
+
 ///
 /// Screen sizes
 ///
@@ -21,11 +24,6 @@ pub(crate) const TEXT_HEIGHT: u8 = 24;
 pub(crate) const HIRES_WIDTH: u16 = 280;
 pub(crate) const HIRES_HEIGHT_MIXED: u16 = 160;
 pub(crate) const HIRES_HEIGHT: u16 = 192;
-
-pub(crate) const MAIN_WINDOW_WIDTH: f32 = (HIRES_WIDTH * MAGNIFICATION  + 800) as f32;
-pub(crate) const MAIN_WINDOW_HEIGHT: f32 = (HIRES_HEIGHT * MAGNIFICATION) as f32;
-
-pub(crate) const UI_WIDTH: f32 = 700.0;
 
 ///
 /// Font sizes
@@ -46,7 +44,8 @@ pub(crate) const TEXT_MODE_ADDRESSES: [u16; TEXT_HEIGHT as usize] = [
 pub const FLASH_FREQUENCY_HZ: u8 = 4;
 
 /// Magnification of the screen
-pub(crate) const MAGNIFICATION: u16 = 4;
+pub(crate) const DEFAULT_MAGNIFICATION: u16 = 4;
+pub(crate) const DEFAULT_SPEED_HZ: u64 = 1_300_000;
 
 /// Disk controller: read bytes, bits, or use the LSS
 #[derive(PartialEq)]
@@ -140,11 +139,14 @@ lazy_static! {
         "Drol".to_string(),
         "Bug Attack".to_string(),
         "Seafox".to_string(), // https://github.com/AppleWin/AppleWin/issues/668
+        "Micro Invaders".to_string(),
     ];
 
     pub static ref DEFAULT_DISKS_DIRECTORIES: Vec<String> = vec![];
 
-    pub static ref DISKS_SUFFIXES: [String; 2] = [ "woz".to_string(), "dsk".to_string() ];
+    pub static ref DISKS_SUFFIXES: [String; 3] = [
+        "woz".to_string(), "dsk".to_string(), "hdv".to_string()
+    ];
 
     pub static ref WATCHED_FILES: Vec<WatchedFileMsg> = vec![
         // WatchedFile {

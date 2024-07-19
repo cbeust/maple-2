@@ -29,7 +29,7 @@ impl Nibble {
     fn is(&self, value: u8) -> bool { self.value == value }
 
     fn area(&self, area_type: AreaType) -> Nibble {
-        Nibble{ value: self.value, sync_bits: self.sync_bits, area_type: area_type }
+        Nibble { value: self.value, sync_bits: self.sync_bits, area_type }
     }
 
     pub(crate) fn to_bits(&self) -> Vec<u8> {
@@ -70,7 +70,7 @@ pub enum AreaType {
     Unknown,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TrackType {
     Standard,
     Nonstandard, Empty

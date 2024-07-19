@@ -1,5 +1,4 @@
 use crate::misc::bit;
-use crate::ui::graphics_screen::calculate_correct_colors_from_bytes;
 use crate::ui::hires_screen::{AColor, CONSECUTIVES, HiresScreen, INTERLEAVING};
 use crate::ui::hires_screen::AColor::{Green, Magenta};
 
@@ -97,3 +96,21 @@ pub fn calculate_coordinates_double_hires(a: usize /* 0-0x2000 */) -> (u16, u16)
     panic!("Can't calculate coordinates for {a:04X}");
 }
 
+#[test]
+pub fn test_hires_colors_sliding_window() {
+    let data = [
+        ([
+            0, 0, 0, 0, 0, 0, 1,
+            1, 1, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0,
+        ], [0, 0, 0, 2, 3, 11, 11, 9, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+    ];
+
+    for (bits, expected) in data {
+        let colors = HiresScreen::calculate_double_hires_colors_from_bits(bits);
+        let expected_colors = expected.iter().map(|c| AColor::to_double_hires_color(*c as u8)).collect::<Vec<AColor>>();
+        assert_eq!(colors, expected_colors);
+    }
+}

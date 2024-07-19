@@ -19,9 +19,10 @@ use crate::disk::disk_info::DiskInfo;
 use crate::disk::drive::{Drive};
 use crate::disk::dsk::Dsk;
 use crate::disk::woz::Woz;
-use crate::messages::{ToUi, TrackSectorMsg};
-use crate::messages::ToUi::{DiskSelected, PhaseUpdate, TrackSector};
-use crate::ui::ui::ui_log;
+use crate::messages::ToUi;
+use crate::ui::iced::shared::*;
+use crate::messages::ToUi::{DiskSelected};
+// use crate::ui::ui_egui;
 
 /// Divide by 2 to get the phase, by 4 to get the track
 pub const MAX_PHASE: usize = 160;
@@ -102,29 +103,18 @@ pub(crate) struct DiskController {
 impl DiskController {
     pub(crate) fn new_with_filename(slot: u8, disk_infos: &[Option<DiskInfo>; 2],
             sender: Option<Sender<ToUi>>) -> Self {
-        let load = |drive| -> Option<Disk> {
-            send_message!(&sender, ToUi::DiskInfo(drive, disk_infos[drive].clone()));
-            if let Some(disk_info) = &disk_infos[drive] {
-                if let Ok(disk) = Disk::new(&disk_info.path, false /* read bit_streams */,
-                    sender.clone()) {
-                    Some(disk)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        };
-
-        Self {
+        let mut result = Self {
             slot,
-            drives: [
-                Drive::new(0, load(0), sender.clone()),
-                Drive::new(1, load(1), sender.clone())
-            ],
             sender,
             ..Default::default()
+        };
+        if let Some(di) = Shared::drive(0) {
+            result.load_disk_from_file(0, di);
         }
+        if let Some(di) = Shared::drive(1) {
+            result.load_disk_from_file(1, di);
+        }
+        result
 
     }
 
@@ -132,7 +122,8 @@ impl DiskController {
         Disk::new(path, true /* don't read bit_streams */, sender)
     }
 
-    pub(crate) fn load_disk_from_file(&mut self, drive_number: usize, disk_info: DiskInfo) {
+    pub(crate) fn load_disk_from_file(&mut self, drive_number: usize, disk_info: DiskInfo)
+    {
         if DiskController::file_to_bytes(drive_number, &disk_info, &self.sender).is_some() {
             match Disk::new(&disk_info.path, false /* read bit_streams */, self.sender.clone()) {
                 Ok(disk) => {
@@ -165,8 +156,10 @@ impl DiskController {
     }
 
     fn on_new_disk_info(sender: Option<Sender<ToUi>>, drive_number: usize,
-            disk_info: Option<DiskInfo>) {
-        send_message!(sender, ToUi::DiskInfo(drive_number, disk_info));
+            disk_info: Option<DiskInfo>)
+    {
+        Shared::set_drive(drive_number, disk_info.clone());
+        send_message!(&sender, ToUi::DiskInserted(drive_number, disk_info));
     }
 
     pub fn file_to_bytes(drive_number: usize, disk_info: &DiskInfo, sender: &Option<Sender<ToUi>>)
@@ -223,7 +216,7 @@ impl DiskController {
                                 Some((current_bit_position * new_length / old_length) % new_length);
                             // println!("Old position: {}  new: {:#?}", current_bit_position, new_bit_position);
                         }
-                        send_message!(&self.sender, PhaseUpdate(v.drive_index, v.phase as u8));
+                        Shared::set_phase_160(v.drive_index, v.phase as u8);
                     }
                     MotorOff(v) => {
                         if ! wrapper.has_run {
@@ -553,7 +546,7 @@ impl DiskController {
 
         if false {
             self.drives[self.drive_index].set_phase80(self.drive_phase_80);
-            send_message!(&self.sender, PhaseUpdate(self.drive_index, self.drive_phase_80 as u8));
+            Shared::set_phase_160(self.drive_index, (self.drive_phase_80 as u8) * 2);
         } else {
             // Move the head, but we need to insert a small delay for the first move if it wasn't
             // in motion already. For subsequent ones, the head can move right away (hence delay of 1
@@ -685,13 +678,8 @@ impl SectorRead {
                     SECTOR1 => {
                         self.sector = pair(self.current_byte, byte);
                         self.state = START;
-                        if let Some(sender) = &sender {
-                            // println!("Track {} Sector {}", disk.track, disk.sector);
-                            sender.send(TrackSector(disk_index, TrackSectorMsg {
-                                track: self.track as f32,
-                                sector: self.sector
-                            })).unwrap();
-                        }
+                        Shared::set_sector(disk_index, self.sector);
+                        Shared::set_track(disk_index, self.track);
                         // println!();
                     }
                     _ => {

@@ -1,6 +1,7 @@
+use std::fmt::{Display, Formatter};
 use crossbeam::channel::Sender;
 use dyn_clone::DynClone;
-use crate::disk::bit_stream::{AnalyzedTrack, BitStreams};
+use crate::disk::bit_stream::{AnalyzedTrack, BitStream, BitStreams};
 use crate::disk::disk_info::DiskInfo;
 use crate::disk::dsk::Dsk;
 use crate::disk::woz::Woz;
@@ -23,6 +24,13 @@ pub(crate) struct Disk {
     // pub(crate) drive_number: usize,
     pub(crate) bit_position: usize,
     sender: Option<Sender<ToUi>>,
+}
+
+impl Display for Disk {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("[Disk: {}", self.disk_info())).unwrap();
+        Ok(())
+    }
 }
 
 impl Clone for Disk {
@@ -48,6 +56,14 @@ impl Disk {
             bit_position: 0,
             sender,
         })
+    }
+
+    pub fn new_with_disk_info(disk_info: Option<DiskInfo>) -> Result<Disk, String> {
+        if let Some(di) = disk_info {
+            Self::new(&di.path, false /* read the whole file */, None)
+        } else {
+            Err("Couldn't read disk".to_string())
+        }
     }
 
     pub fn disk_info(&self) -> DiskInfo {
@@ -76,6 +92,10 @@ impl Disk {
         } else {
             panic!("Unknown disk format");
         }
+    }
+
+    pub fn get_stream(&self, phase_160: usize) -> BitStream {
+        self.pdisk.bit_streams().get_stream(phase_160).clone()
     }
 
     pub fn get_stream_len(&self, phase_160: usize) -> usize {

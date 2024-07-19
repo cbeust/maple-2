@@ -1,33 +1,49 @@
-use std::fs;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
-use std::ops::{Add};
+use std::sync::{Arc, Mutex, RwLock};
 use crossbeam::channel::{Receiver, Sender};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use log4rs::Handle;
 use cpu::config::Config;
-use cpu::cpu::{Cpu, RunStatus};
+use cpu::cpu::{Cpu, RunStatus, StopReason};
 use cpu::memory::Memory;
 use crate::memory::Apple2Memory;
 use crate::messages::{CpuDumpMsg, CpuStateMsg, ToCpu, ToUi};
-use crate::messages::ToUi::EmulatorSpeed;
+use crate::messages::ToUi::{EmulatorSpeed};
 use crate::misc::increase_cycles;
 use crate::rolling_times::RollingTimes;
-use crate::{configure_log, send_message};
+use crate::{configure_log, send_message, ui_log};
 use crate::config_file::ConfigFile;
-use crate::constants::{PC, START};
-use crate::ui::ui::ui_log;
+use crate::constants::{CPU_REFRESH_MS, PC, START};
+use crate::ui::iced::message::InternalUiMessage;
+use crate::ui::iced::shared::Shared;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct EmulatorConfigMsg {
     pub config: Config,
     pub config_file: ConfigFile,
 }
 
 impl EmulatorConfigMsg {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config, config_file: ConfigFile) -> Self {
         Self {
-            config, ..Default::default()
+            config, config_file,
+        }
+    }
+}
+
+fn to_cpu_state(run_status: &RunStatus, step: bool) -> CpuStateMsg {
+    match run_status {
+        RunStatus::Continue(_) => {
+            if step {
+                CpuStateMsg::Step
+            } else {
+                CpuStateMsg::Running
+            }
+        }
+        RunStatus::Stop(_, _) => {
+            CpuStateMsg::Paused
         }
     }
 }
@@ -52,7 +68,8 @@ pub struct AppleCpu {
 }
 
 impl AppleCpu {
-    pub fn new(cpu: Cpu<Apple2Memory>, config: EmulatorConfigMsg, sender: Option<Sender<ToUi>>,
+    pub fn new(cpu: Cpu<Apple2Memory>, config: EmulatorConfigMsg,
+        sender: Option<Sender<ToUi>>,
             receiver: Option<Receiver<ToCpu>>, handle: Option<Handle>) -> Self {
         Self { cpu, sender, receiver,
             last_memory_sent: Instant::now(),
@@ -73,39 +90,45 @@ impl AppleCpu {
         // println!("[CPU {:>4}] {}", self.this_run_cycles, s);
     }
 
-    pub fn step(&mut self) -> (bool, u64) {
+    pub fn step(&mut self) {
         if ! self.started {
             self.start = Instant::now();
             self.started = true;
         }
 
+        if ! matches!(self.cpu.run_status, RunStatus::Stop(_, _)) {
+            self.cpu.memory.disk_controller.step();
+            self.advance_cpu();
+            *PC.write().unwrap() = self.cpu.pc;
+            self.cpu.memory.disk_controller.step();
 
-        self.cpu.memory.disk_controller.step();
-        let cycles = self.advance_cpu();
-        *PC.write().unwrap() = self.cpu.pc;
-        self.cpu.memory.disk_controller.step();
+            self.cycles += self.cpu.run_status.cycles();
 
-        self.cycles += cycles as u128;
-
-        increase_cycles(1);
-
-        (false, cycles)
+            increase_cycles(1);
+        }
     }
 
-    fn advance_cpu(&mut self) -> u64 {
-        let mut cycles = 0_u64;
+    fn advance_cpu(&mut self) {
         if self.wait == 0 {
-            cycles = match self.cpu.step(&self.config.config) {
-                RunStatus::Continue(c) => c as u64,
-                RunStatus::Stop(_, _, _) => 0,
+            self.cpu.step(&self.config.config, &self.config.config_file.breakpoints_hash);
+            match self.cpu.run_status {
+                RunStatus::Continue(_) => {}
+                RunStatus::Stop(ref reason, _) => {
+                    if *reason == StopReason::BreakpointHit {
+                        ui_log(&format!("Sending message to UI: BreakpointWasHit: {:04X}",
+                                        self.cpu.pc));
+                        send_message!(&self.sender, ToUi::BreakpointWasHit(0));
+                        Shared::set_breakpoint_was_hit(true);
+                    }
+                }
             };
+            let cycles = self.cpu.run_status.cycles();
             self.wait = (cycles - 1) as u8;
-            self.this_run_cycles += cycles;
+            self.this_run_cycles += cycles as u64;
         } else {
             self.wait -= 1;
+            self.cpu.run_status = RunStatus::Continue(1);
         }
-
-        cycles
     }
 
     fn emulator_period_cycles(&self) -> u64 {
@@ -116,10 +139,10 @@ impl AppleCpu {
         1000 * self.emulator_period_cycles() / self.config.config.emulator_speed_hz
     }
 
-    pub fn steps(&mut self, debug_asm: bool) -> (bool, u128) {
+    pub fn steps(&mut self, debug_asm: bool) {
         let mut total_cycles: u128 = 0;
         let mut slice_cycles: u64 = 0;
-        let stop = false;
+        let mut stop = false;
 
         let slice_start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
@@ -129,31 +152,29 @@ impl AppleCpu {
         // On 10 the latch is cleared 12 lss cycles after the first 1 (50% margin).
         // On 11 3 lss cycles after the second 1.
         while ! stop && slice_cycles < self.emulator_period_cycles() {
-            let (st, cy) = self.step();
+            self.step();
+            stop = matches!(self.cpu.run_status, RunStatus::Stop(_, _));
             // println!("Advancing {} cycles", cy);
-            slice_cycles += cy;
-            total_cycles += cy as u128;
+            let cy = self.cpu.run_status.cycles();
+            slice_cycles += cy as u64;
+            total_cycles += cy;
         }
         self.rolling_times.add(slice_start,
                                SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
                                slice_cycles as u128);
-
-        (false, total_cycles)
     }
 
     /// Return true if we're rebooting, false if we're exiting
-    pub fn run(&mut self) -> bool {
+    pub fn run(&mut self) -> CpuStateMsg {
         use ToCpu::*;
         let mut total_cycles: u128 = 0;
-        let mut stop = false;
         let start = *START.get().unwrap();
         let mut next_cpu_run = (Instant::now() - Duration::new(10, 0)).duration_since(start).as_millis();
-        let mut rebooting = false;
-        let mut paused = false;
 
-        while ! stop {
+        let mut status = CpuStateMsg::Running;
+        while status == CpuStateMsg::Running {
             if let Some(receiver) = &self.receiver {
-                while ! stop && ! receiver.is_empty() {
+                while status == CpuStateMsg::Running && ! receiver.is_empty() {
                     if let Ok(message) = receiver.recv() {
                         match message {
                             SetMemory(sm) => {
@@ -180,19 +201,26 @@ impl AppleCpu {
                             }
                             SwapDisks => {
                                 self.cpu.memory.disk_controller.swap_disks();
+                                let paths = &self.cpu.memory.disk_controller.disks()
+                                    .map(|disk| disk.map(|di| di.path));
+                                self.config.config_file.set_drive(false, 0, paths[0].clone());
+                                self.config.config_file.set_drive(false, 1, paths[1].clone());
                             }
                             Reboot => {
-                                stop = true;
-                                rebooting = true;
+                                status = CpuStateMsg::Rebooting;
+                                // stop = true;
+                                // rebooting = true;
                                 self.cpu.memory.on_reboot();
                             }
                             SaveGraphics => {
                                 save_graphic_memory(&mut self.cpu.memory);
                             }
-                            LoadDisk(drive_number, disk_info) => {
-                                ui_log(&format!("Loading {} in drive {drive_number}",
-                                    disk_info.path()));
-                                self.cpu.memory.disk_controller.load_disk_from_file(drive_number,
+                            LoadDisk(is_hard_drive, drive_number, disk_info) => {
+                                ui_log(&format!("Loading {} in {} drive {drive_number}",
+                                    disk_info.path(),
+                                    if is_hard_drive { "hard" } else { "" }
+                                ));
+                                self.cpu.memory.load_disk_from_file(is_hard_drive, drive_number,
                                     disk_info);
                             }
                             LockDisk(drive_number) => {
@@ -201,9 +229,29 @@ impl AppleCpu {
                             }
                             CpuState(state) => {
                                 match state {
-                                    CpuStateMsg::Running => { paused = false; }
-                                    CpuStateMsg::Paused => { paused = true; }
-                                }
+                                    CpuStateMsg::Step => {
+                                        self.cpu.step(&self.config.config, &HashSet::new());
+                                        self.cpu.run_status = RunStatus::Stop(StopReason::Ok, 0);
+                                        status = CpuStateMsg::Step;
+                                    }
+                                    CpuStateMsg::Running => {
+                                        self.cpu.run_status = RunStatus::Continue(0);
+                                        Shared::set_breakpoint_was_hit(false);
+                                        status = CpuStateMsg::Running;
+                                    }
+                                    CpuStateMsg::Paused => {
+                                        self.cpu.run_status = RunStatus::Stop(StopReason::Ok, 0);
+                                        status = CpuStateMsg::Paused;
+                                    }
+                                    CpuStateMsg::Exit => {
+                                        send_message!(&self.sender, ToUi::Exit);
+                                        self.cpu.run_status = RunStatus::Stop(StopReason::Exit, 0);
+                                        status = CpuStateMsg::Exit;
+                                    }
+                                    _ => {}
+                                };
+
+                                Shared::cpu().run_status = self.cpu.run_status;
                             }
                             TraceStatus(trace_status) => {
                                 let mut remove = false;
@@ -247,6 +295,7 @@ impl AppleCpu {
                 }
             }
 
+
             /*
             you can use checked_duration_since to avoid calculating new duration yourself
             const FRAME: Duration = Duration::from_nanos(1_000_000_000 / 60);
@@ -258,10 +307,11 @@ impl AppleCpu {
             */
             // Complete this slice
             let now = Instant::now().duration_since(start).as_millis();
-            if ! paused && ! stop && now >= next_cpu_run {
-                let (st, cy) = self.steps(false);
-                stop = st;
-                total_cycles += cy;
+            if status == CpuStateMsg::Running && now >= next_cpu_run {
+                self.steps(false);
+                total_cycles += self.cpu.run_status.cycles();
+                status = to_cpu_state(&self.cpu.run_status, false);
+                // stop = matches!(run_status, RunStatus::Stop(_, _));
                 let now2 = Instant::now().duration_since(start).as_millis();
                 let elapsed = (now2 - now) as u64;
                 let emulator_period_ms = self.emulator_period_ms();
@@ -270,19 +320,14 @@ impl AppleCpu {
                     next_cpu_run = now2 + next as u128;
                 }
             }
-            // If the slice is over, reset
-            // if true {
-            //     let elapsed = self.last_cpu_run.elapsed().as_millis() as u32;
-            //     if self.this_run_cycles >= EMULATOR_PERIOD_CYCLES && elapsed >= EMULATOR_PERIOD_MS {
-            //         self.this_run_cycles = 0;
-            //         self.last_cpu_run = Instant::now();
-            //     }
-            // } else {
-            //     self.this_run_cycles = 0;
-            //     self.last_cpu_run = Instant::now();
-            // }
 
-            if ! paused && ! stop {
+            let elapsed = self.last_memory_sent.elapsed().as_millis();
+            if elapsed > CPU_REFRESH_MS {
+                self.update_context();
+                self.last_memory_sent = Instant::now();
+            }
+
+            if status == CpuStateMsg::Running {
                 // Send CPU speed update
                 if self.last_speed_sent.elapsed().as_millis() > 1000 {
                     send_message!(&self.sender, EmulatorSpeed(self.rolling_times.average()));
@@ -290,33 +335,39 @@ impl AppleCpu {
                 }
 
                 // Send CPU update if the time has come
-                let elapsed = self.last_memory_sent.elapsed().as_millis();
                 let mut extra_text_memory: Vec<u8> = Vec::new();
                 for i in 0..0x400 {
                     extra_text_memory.push(self.cpu.memory.memories[1][i + 0x400]);
                 }
-                if elapsed > 10 {
-                    // println!("Sending CPU {elapsed}");
-                    let cpu_dump = CpuDumpMsg {
-                        memory: self.cpu.memory.main_memory(),
-                        aux_memory: self.cpu.memory.aux_memory(),
-                        a: self.cpu.a,
-                        x: self.cpu.x,
-                        y: self.cpu.y,
-                        pc: self.cpu.pc,
-                        p: self.cpu.p,
-                        s: self.cpu.s,
-                    };
-                    let message = ToUi::CpuDump(cpu_dump);
-                    send_message!(&self.sender, message);
-                    self.last_memory_sent = Instant::now();
-                } else {
-                    // println!("Too early, not sending CPU {elapsed}");
-                }
             }
         }
-        rebooting
+
+        status
     }
+
+    fn update_context(&mut self) {
+        Shared::set_cpu(create_dump_msg(&mut self.cpu));
+    }
+}
+
+pub(crate) static ID: RwLock<u64> = RwLock::new(0);
+
+fn create_dump_msg(cpu: &mut Cpu<Apple2Memory>) -> CpuDumpMsg {
+    let id: u64 = *ID.read().unwrap();
+    *ID.write().unwrap() = id.wrapping_add(1);
+    let result = CpuDumpMsg {
+        id,
+        memory: cpu.memory.main_memory(),
+        aux_memory: cpu.memory.aux_memory(),
+        a: cpu.a,
+        x: cpu.x,
+        y: cpu.y,
+        pc: cpu.pc,
+        p: cpu.p,
+        s: cpu.s,
+        run_status: cpu.run_status.clone(),
+    };
+    result
 }
 
 fn save_graphic_memory(m: &mut Apple2Memory) {

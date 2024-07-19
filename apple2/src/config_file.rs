@@ -1,28 +1,68 @@
+use std::collections::HashSet;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use cpu::constants::DEFAULT_EMULATOR_SPEED_HZ;
-use crate::constants::{ALL_DISKS, DEFAULT_DISK_INDICES, DEFAULT_DISKS_DIRECTORIES};
-use crate::ui::ui::{MainTab, ui_log};
+use crate::constants::{ALL_DISKS, DEFAULT_DISK_INDICES, DEFAULT_DISKS_DIRECTORIES, DEFAULT_MAGNIFICATION, DEFAULT_SPEED_HZ};
+// use crate::ui::ui_egui::{MainTab};
+use crate::ui_log;
 
 /// Name of the config file, which is saved under whatever dirs::config_dir() returns
 pub(crate) const CONFIG_DIR: &str = "maple2";
 pub(crate) const CONFIG_FILE: &str = "config.json";
 
+fn as_true() -> bool { true }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Breakpoint {
+    pub(crate) address: u16,
+    #[serde(default = "as_true")]
+    pub(crate) enabled: bool,
+}
+
 /// Saved in the user settings file `CONFIG_FILE` in the config directory.
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ConfigFile {
     emulator_speed_hz: u64,
     disk_directories: Vec<String>,
     drive_1: Option<String>,
     drive_2: Option<String>,
+    hard_drive_1: Option<String>,
+    hard_drive_2: Option<String>,
     // The tab to start in (ordinal position of the enum [MainTab]
     pub(crate) tab: usize,
+    pub(crate) magnification: Option<u16>,
+
+    #[serde(default)]
+    breakpoints: Vec<Breakpoint>,
+
+    #[serde(skip)]
+    pub(crate) breakpoints_hash: HashSet<u16>,
+}
+
+impl Default for ConfigFile {
+    fn default() -> Self {
+        Self {
+            emulator_speed_hz: DEFAULT_SPEED_HZ,
+            magnification: Some(DEFAULT_MAGNIFICATION),
+            disk_directories: Vec::new(),
+            drive_1: None,
+            drive_2: None,
+            hard_drive_1: None,
+            hard_drive_2: None,
+            tab: 0,
+            breakpoints: Vec::new(),
+            breakpoints_hash: HashSet::new(),
+        }
+    }
 }
 
 impl ConfigFile {
+    pub fn magnification(&self) -> u16 { self.magnification.unwrap_or_else(|| DEFAULT_MAGNIFICATION)}
+
     /// If a ConfigFile already exists, read it, if not create it with defaults, then return it
     pub fn new() -> ConfigFile {
         let mut result = ConfigFile::default();
@@ -43,7 +83,44 @@ impl ConfigFile {
             }
         };
 
+        result.recalculate();
         result
+    }
+
+    pub fn hard_drive_1(&self) -> Option<String> {
+        self.hard_drive_1.clone()
+    }
+
+    pub fn hard_drive_2(&self) -> Option<String> {
+        self.hard_drive_2.clone()
+    }
+
+    pub fn breakpoints(&self) -> &Vec<Breakpoint> {
+        &self.breakpoints
+    }
+
+    pub(crate) fn add_breakpoint(&mut self, bp: String) {
+        match u16::from_str_radix(&bp, 16) {
+            Ok(address) => {
+                let mut vec = self.breakpoints().clone();
+                vec.push(Breakpoint {
+                    address,
+                    enabled: true,
+                });
+                self.breakpoints.clear();
+                self.breakpoints.clone_from(&vec);
+                self.recalculate();
+                self.save();
+            }
+            Err(_) => { ui_log(&format!("Couldn't add breakpoint {bp}")); }
+        }
+    }
+
+    fn recalculate(&mut self) {
+        self.breakpoints_hash.clear();
+        for bp in &self.breakpoints {
+            self.breakpoints_hash.insert(bp.address);
+        }
     }
 
     pub(crate) fn disk_directories(&self) -> &Vec<String> { &self.disk_directories }
@@ -51,28 +128,43 @@ impl ConfigFile {
     pub(crate) fn drive_1(&self) -> Option<String> { self.drive_1.clone() }
     pub(crate) fn drive_2(&self) -> Option<String> { self.drive_2.clone() }
 
-    pub fn set_drive(&mut self, drive_number: usize, path: Option<String>) {
-        if drive_number == 0 {
-            self.drive_1 = path;
-        } else {
-            self.drive_2 = path;
+    pub fn set_drive(&mut self, is_hard_drive: bool, drive_number: usize, path: Option<String>) {
+        if let Some(p) = &path {
+            if p.ends_with("hdv") && ! is_hard_drive {
+                println!("BUG HARD DRIVE");
+            }
         }
-        Self::save_config(self);
+        match (is_hard_drive, drive_number) {
+            (true, 0) => { self.hard_drive_1 = path }
+            (true, 1) => { self.hard_drive_2 = path }
+            (false, 0) => { self.drive_1 = path }
+            (false, 1) => { self.drive_2 = path }
+            _ => { panic!("Should never happen"); }
+        }
+        self.save();
     }
 
-    pub fn set_tab(&mut self, tab: MainTab) {
-        self.tab = tab.to_index();
-        Self::save_config(self);
+    pub fn delete_breakpoint(&mut self, address: u16) {
+        if let Some(index) = self.breakpoints.iter().position(|bp| bp.address == address) {
+            self.breakpoints.remove(index);
+        }
+        self.recalculate();
+        self.save();
+    }
+
+    pub fn set_tab(&mut self, tab_index: usize) {
+        self.tab = tab_index;
+        self.save();
     }
 
     pub(crate) fn set_disk_directories(&mut self, directories: Vec<String>) {
         self.disk_directories = directories.clone();
-        Self::save_config(self);
+        self.save();
     }
 
-    fn save_config(config_file: &ConfigFile) {
+    fn save(&self) {
         if let Some(config_file_path) = Self::config_file_path() {
-            if let Ok(serialized) = serde_json::to_string_pretty(&config_file) {
+            if let Ok(serialized) = serde_json::to_string_pretty(&self) {
                 let cf = config_file_path.to_str().unwrap();
                 match File::create(config_file_path.clone()) {
                     Ok(mut file) => {
@@ -128,9 +220,14 @@ impl ConfigFile {
                     emulator_speed_hz: DEFAULT_EMULATOR_SPEED_HZ,
                     disk_directories: existing,
                     drive_1, drive_2,
+                    hard_drive_1: None,
+                    hard_drive_2: None,
                     tab: 0,
+                    magnification: Some(DEFAULT_MAGNIFICATION),
+                    breakpoints: Vec::new(),
+                    breakpoints_hash: HashSet::new(),
                 };
-                Self::save_config(&user_config);
+                user_config.save();
             }
         } else {
             ui_log("Config directory doesn't seem to exist, not saving settings");
