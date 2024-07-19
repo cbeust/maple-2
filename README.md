@@ -2,12 +2,12 @@
   <img src="pics/logo.png" width="400"/>
 </p>
 
+
 <p align="center">
   <h1 align="center">
     An Apple // emulator in Rust
   </h1>
 </p>
-
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/95c7d36a-10b4-4dc8-8090-9cb9bad9e345">
@@ -85,7 +85,7 @@ cd harte
 cargo run --release
 ```
 
-https://github.com/cbeust/maple-2/assets/92322/f75270b3-b438-41ff-869f-d32c952a79a6
+https://github.com/cbeust/sixty.rs/assets/92322/db46d0e5-5c16-4dad-8a27-4290a41151dc
 
 ## Developer note
 
@@ -115,11 +115,11 @@ https://github.com/cbeust/sixty.rs/assets/92322/499b9f47-600c-4ce7-85b7-c373e18b
     </tr>
     <tr>
         <td><img src="pics/disk-view.png"/></td>
-        <td><img src="pics/memory-view.png"/></td>
+        <td><img src="pics/debugger-view.png"/></td>
     </tr>
     <tr align="center">
         <td><b>Disks view</b></td>
-        <td><b>Memory view</b></td>
+        <td><b>Debugger view</b></td>
     </tr>
     <tr>
         <td><img src="pics/nibbles-view.png"/></td>
@@ -128,6 +128,14 @@ https://github.com/cbeust/sixty.rs/assets/92322/499b9f47-600c-4ce7-85b7-c373e18b
     <tr align="center">
         <td><b>Nibbles view</b></td>
         <td><b>Floppy Disk view</b></td>
+    </tr>
+    <tr>
+        <td><img src="pics/total-replay.png"/></td>
+        <td><img src="pics/prince-of-persia.png"/></td>
+    </tr>
+    <tr align="center">
+        <td><b>Total Replay (hard drive)</b></td>
+        <td><b>Prince of Persia</b></td>
     </tr>
     <tr>
         <td><img src="pics/aztec.png"/></td>
