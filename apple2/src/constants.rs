@@ -140,6 +140,11 @@ lazy_static! {
         "Bug Attack".to_string(),
         "Seafox".to_string(), // https://github.com/AppleWin/AppleWin/issues/668
         "Micro Invaders".to_string(),
+        // Newsroom is up there with Wizardry and Sun Dog for the most non-working disks in my experience. I keep trying to image new copies but only half the time does the program disk work.
+        // It requires a custom bit timing
+        // On the woz
+        // For the entire disk
+        "Newsroom".to_string(),
     ];
 
     pub static ref DEFAULT_DISKS_DIRECTORIES: Vec<String> = vec![];
