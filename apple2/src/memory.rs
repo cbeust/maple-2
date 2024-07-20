@@ -12,7 +12,8 @@ use crate::memory_constants::*;
 use crate::messages::ToUi;
 use crate::messages::ToUi::RgbModeUpdate;
 use crate::roms::{DISK2_ROM, SMARTPORT_ROM};
-use crate::send_message;
+use crate::{send_message, ui_log};
+use crate::smartport::SmartPort;
 use crate::ui::iced::shared::Shared;
 
 const MAIN: usize = 0;
@@ -95,10 +96,7 @@ pub struct Apple2Memory {
     slot_c8_status: bool,
 
     pub(crate) disk_controller: DiskController,
-
-    last_prodos_block_read: Option<u16>,
-    prodos_block: [u8; 512],
-    prodos_block_index: usize,
+    smartport: SmartPort,
     vbl: u8,
 }
 
@@ -146,9 +144,7 @@ impl Apple2Memory {
             dhg_iou_disabled: false,
             dhg_rgb_mode: 0,
             dhg_rgb_flags: 0,
-            last_prodos_block_read: None,
-            prodos_block: [0; 512],
-            prodos_block_index: 0,
+            smartport: SmartPort::default(),
             vbl: 0,
         }
     }
@@ -206,55 +202,10 @@ impl Apple2Memory {
             ))
     }
 
-    /// Smartport: read the block_number in our holding 512 byte buffer.
-    /// That buffer will then be returned one byte at a time each time $C0F8 is read
-    pub fn read_block(&mut self, block_number: u16) {
-        let filename1 = "d:\\Apple Disks\\Total.Replay.hdv";
-        let filename2 = "C:\\Users\\Ced\\Downloads\\jon_relays_stuff.hdv";
-        let filename3 = "D:\\Apple disks\\jon relay's desktop 2.0.hdv";
-
-        let filename = filename1;
-
-        if let Some(disk_info) = &Shared::hard_drive(0) {
-            let mut file = File::open(&disk_info.path).expect("Open the file");
-            let metadata = fs::metadata(filename).expect("Read metadata");
-            let mut content: Vec<u8> = vec![0; metadata.len() as usize];
-            file.read(&mut content).expect("Read the content of the file");
-            // alog(&format!("Reading content of block {block_number} at ${:04X}", self.word(0x44)));
-            // println!("Reading content of block {block_number} at ${:04X}", self.word(0x44));
-            let offset = block_number as usize * 512;
-            for i in 0..512 {
-                self.prodos_block[i] = content[i + offset as usize];
-            }
-            // println!("Read content of block {block_number} at ${:04X}", self.word(0x44));
-            self.last_prodos_block_read = Some(block_number);
-            self.prodos_block_index = 0;
-
-            Shared::set_block_number(0, block_number);
-        }
-    }
-
     /// Handle both get and set in the same function since we sometimes do the same thing
     /// for both accesses. Return `None` if we're setting a value, `Some(value)` if it's
     /// a memory get.
     fn get_or_set(&mut self, address: u16, value: u8, get: bool) -> Option<u8> {
-
-        // SmartPort. $C0F8 is read repeatedly to fetch bytes from the mass storage.
-        // To emulate it, we make sure that the block that we have loaded is the same
-        // as the one requested ($46-$47) and if not, we load it.
-        if address == 0xc0f8 {
-            let block_number = self.word(0x46);
-            if self.last_prodos_block_read.is_none() {
-                self.read_block(block_number);
-            }
-            match self.last_prodos_block_read {
-                Some(block) if block != block_number => {
-                    self.read_block(block_number);
-                }
-                _ => {}
-            }
-        }
-
         let mut result: Option<u8> = None;
         let set = ! get;
 
@@ -446,22 +397,10 @@ impl Apple2Memory {
             // 0xc010 => if set { self.memories[MAIN][0xc000] &= 0x7f; }
 
             0xc0f8 => {
-                if self.prodos_block_index >= 512 {
-                    alog(&format!("Exceeding index, PC:{:04X} last block read:{:04X} block#:{:04X} memory:{:04X}",
-                        *PC.read().unwrap(),
-                        self.last_prodos_block_read.unwrap_or(0),
-                        self.word(0x46),
-                        self.word(0x44),
-                    ));
-                    self.prodos_block_index = 0;
-                    // self.prodos_block_index = 511;
-                    // let next_block = self.last_prodos_block_read.unwrap() + 1;
-                    // self.last_prodos_block_read = Some(next_block);
-                    // let b = self.word(0x46);
-                    // self.maybe_read_block(b);
+                let block_number = self.word(0x46);
+                if let Ok(byte) = self.smartport.next_byte(block_number) {
+                    result = Some(byte);
                 }
-                result = Some(self.prodos_block[self.prodos_block_index]);
-                self.prodos_block_index += 1;
             }
             0xc100..=0xcffe => {
                 // Sather, Understanding the Apple ][, 5-28

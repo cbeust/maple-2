@@ -16,6 +16,7 @@ mod memory_constants;
 mod macros;
 mod mini_fb;
 mod config_file;
+mod smartport;
 
 mod disk {
     pub mod disk_controller;
