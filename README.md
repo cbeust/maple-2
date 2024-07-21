@@ -62,7 +62,7 @@ As of this writing, Maple-2 boots the following protected `woz` disks:
 - Bit timing
   - Border Zone
 - Ultimate protection
-  - Prince of Persia
+  - Prince of Persia (E7 + RWTS18)
 
 ## Gallery
 <table>
