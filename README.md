@@ -50,7 +50,7 @@ As of this writing, Maple-2 boots the following protected `woz` disks:
   - Hard Hat Mack
   - Marble Madness
 - Half Tracks
-  - The BIlestoad
+  - The Bilestoad
 - More advanced protections
   - Dino Eggs
   - Crisis Mountain
