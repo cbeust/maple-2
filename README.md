@@ -34,6 +34,37 @@ $ cd apple2
 $ cargo run -r
 ```
 
+## Protected disks
+
+As of this writing, Maple-2 boots the following protected `woz` disks:
+
+- Basic protections
+  - Bouncing Kamungas
+  - Commando
+  - Planetfall
+  - Rescue Raiders
+  - Sammy Lightfoot
+- Cross track sync
+  - Blazing Paddles
+  - Take 1
+  - Hard Hat Mack
+  - Marble Madness
+- Half Tracks
+  - The BIlestoad
+- More advanced protections
+  - Dino Eggs
+  - Crisis Mountain
+  - Miner 2049er II
+- Fake bits
+  - The Print Shop Companion
+- Data latch protection
+  - First Math Adventures - Understanding Word Problems
+- Bit timing
+  - Border Zone
+- Ultimate protection
+  - Prince of Persia
+
+
 ## Documentation
 
 When you launch `Maple //` for the first time, you will have to select a folder that contains Apple ][ disk images
