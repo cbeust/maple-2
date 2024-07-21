@@ -1,28 +1,30 @@
 use std::time::Instant;
 use crossbeam::channel::Sender;
-use iced::widget::{Canvas, horizontal_rule};
-use iced::{Color, Element, Length, Padding, Point, Rectangle, Renderer, Size, Theme};
+use iced::widget::{Canvas};
+use iced::{Color, Element, keyboard, Length, Padding, Point, Rectangle, Renderer, Size, Theme};
+use iced::keyboard::Key::Named;
 use iced::widget::{container, Space};
 use iced::widget::{row, Row, Column};
 use iced::mouse::Cursor;
 use iced::widget::button::danger;
-use iced::widget::canvas::{Cache, Fill, Geometry, Path, Program};
+use iced::widget::canvas::{Cache, Event, event, Fill, Geometry, Path, Program};
 use iced_aw::Tabs;
 use crate::config_file::ConfigFile;
 use crate::ui::iced::tab::Tab;
 use crate::ui::iced::style::{m_button};
 use crate::constants::{CPU_REFRESH_MS, HIRES_HEIGHT, HIRES_WIDTH};
 use crate::disk::drive::DriveStatus;
-use crate::messages::{CpuDumpMsg, DrawCommand, ToCpu, ToMiniFb,};
+use crate::messages::{CpuDumpMsg, DrawCommand, SetMemoryMsg, ToCpu, ToMiniFb};
 use crate::ui::hires_screen::{AColor, HiresScreen};
 use crate::ui::iced::disks_tab::DisksTab;
 use crate::ui::iced::nibbles_tab::NibblesTab;
 use crate::ui::iced::ui_iced::{TabId, Window};
 use crate::{send_message};
 use crate::ui::iced::disk_tab::DiskTab;
-use crate::ui::iced::message::InternalUiMessage;
-use crate::ui::iced::message::InternalUiMessage::{Init, ShowDrives, ShowHardDrives};
+use crate::ui::iced::keyboard::{special_named_key};
+use crate::ui::iced::message::{SpecialKeyMsg};
 use crate::ui::iced::shared::*;
+use crate::{InternalUiMessage, InternalUiMessage::*};
 
 pub struct MainWindow {
     config_file: ConfigFile,
@@ -152,7 +154,6 @@ impl Window for MainWindow {
     }
 
     fn update(&mut self, message: InternalUiMessage) {
-        use InternalUiMessage::*;
         match message {
             Tick => {
                 // alog(&format!("Got {} draw commands", self.draw_commands.len()));
@@ -219,8 +220,34 @@ impl Window for MainWindow {
     }
 }
 
-impl<InternalUiMessage> Program<InternalUiMessage> for MainWindow {
+impl Program<InternalUiMessage> for MainWindow
+{
     type State = ();
+
+    fn update(
+        &self,
+        _state: &mut Self::State,
+        event: Event,
+        _bounds: Rectangle,
+        _cursor: Cursor,
+    ) -> (event::Status, Option<InternalUiMessage>)
+    {
+        let mut pressed = true;
+        let mut message: Option<SpecialKeyMsg> = None;
+        // Handle ALT_LEFT = button joystick 0
+        if let Event::Keyboard(keyboard::Event::KeyPressed{key: Named(nk), .. }) = &event {
+            pressed = true;
+            message = special_named_key(*nk);
+        }
+        // Handle ALT_RIGHT = button joystick 1
+        if let Event::Keyboard(keyboard::Event::KeyReleased{key: Named(nk), ..}) = &event {
+            pressed = false;
+            message = special_named_key(*nk);
+        }
+        let result = message.map(|m| SpecialKey(m, pressed));
+
+        (event::Status::Ignored, result)
+    }
 
     fn draw(&self, _state: &Self::State, renderer: &Renderer, _theme: &Theme, bounds: Rectangle,
             _cursor: Cursor) -> Vec<Geometry<Renderer>>
@@ -252,4 +279,5 @@ impl<InternalUiMessage> Program<InternalUiMessage> for MainWindow {
             vec![geometry]
         }
     }
+
 }

@@ -599,10 +599,6 @@ impl Apple2Memory {
         if result.is_none() && get {
             panic!("None at PC {:04X} address:{:04X}", *PC.read().unwrap(), address);
         }
-        // if address == 0xe000 && get && result.unwrap() != 0x4c {
-        //     println!("WRONG VALUE FOR E000, PC:{:04X} {:02X}", *PC.read().unwrap(), result.unwrap());
-        //     println!();
-        // }
         result
     }
 

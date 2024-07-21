@@ -1,7 +1,8 @@
 use iced::advanced::graphics::core::SmolStr;
 use iced::keyboard::{Key};
 use iced::keyboard::key::Named;
-use crate::ui::iced::message::InternalUiMessage;
+use crate::ui::iced::message::{InternalUiMessage, SpecialKeyMsg};
+use crate::ui::iced::message::InternalUiMessage::SpecialKey;
 
 pub fn handle_keyboard(key: Key, modifiers: iced::keyboard::Modifiers)
     -> Option<InternalUiMessage>
@@ -9,19 +10,11 @@ pub fn handle_keyboard(key: Key, modifiers: iced::keyboard::Modifiers)
     let mut result: Option<InternalUiMessage> = None;
     match key {
         Key::Named(k) => {
-            // println!("Key: {k:#?}");
-            result = if let Some(b) = named_key(k) {
-                Some(InternalUiMessage::Key(b))
-            } else {
-                None
-            };
+            result = named_key(k).map(InternalUiMessage::Key);
         }
         Key::Character(c) => {
-            result = if let Some(b) = character_key(c, modifiers.shift(), modifiers.control()) {
-                Some(InternalUiMessage::Key(b))
-            } else {
-                None
-            };
+            result = character_key(c, modifiers.shift(), modifiers.control())
+                .map(InternalUiMessage::Key);
         }
         Key::Unidentified => {
             println!("Unidentified: {key:#?}")
@@ -68,6 +61,14 @@ fn character_key(s: SmolStr, shift: bool, control: bool) -> Option<u8> {
             0x39 => { Some(if shift { 0xa9 } else { n + 0x80 }) } // 9 )
             _ => { None }
         }
+    }
+}
+
+pub fn special_named_key(named: Named) -> Option<SpecialKeyMsg> {
+    match named {
+        Named::Alt => { Some(SpecialKeyMsg::AltLeft) }
+        Named::AltGraph => { Some(SpecialKeyMsg::AltRight) }
+        _ => { None }
     }
 }
 

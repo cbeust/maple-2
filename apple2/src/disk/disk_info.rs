@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 use std::path::Path;
 
 #[derive(Clone, Default, Debug, PartialEq)]
-pub enum DiskType {
+pub enum WozVersion {
     #[default]
     Unknown,
     Dsk, Woz1, Woz2,
@@ -13,7 +13,7 @@ pub enum DiskType {
 #[derive(Clone, Debug, Default)]
 pub struct DiskInfo {
     pub(crate) name: Option<String>,
-    pub(crate) disk_type: DiskType,
+    pub(crate) woz_version: WozVersion,
     pub(crate) path: String,
     pub(crate) map: HashMap<String, String>,
     pub(crate) is_write_protected: bool,
@@ -31,21 +31,22 @@ impl DiskInfo {
     pub fn new(name: &str, path: &str) -> Self {
         Self {
             name: Some(name.to_string()), path: path.to_string(), map: HashMap::new(),
-            disk_type: DiskType::Unknown, is_write_protected: true,
+            woz_version: WozVersion::Unknown, is_write_protected: true,
         }
     }
 
-    pub fn new2(name: Option<String>, path: &str, map: HashMap<String, String>, disk_type: DiskType,
+    pub fn new2(name: Option<String>, path: &str, map: HashMap<String, String>, disk_type: WozVersion,
             is_write_protected: bool)
             -> Self {
         Self {
-            name, path: path.to_string(), map, disk_type, is_write_protected,
+            name, path: path.to_string(), map,
+            woz_version: disk_type, is_write_protected,
         }
     }
 
     pub fn n(path: &str) -> Self {
         Self { name: None, path: path.to_string(), map: HashMap::default(),
-            disk_type: DiskType::Unknown, is_write_protected: true, }
+            woz_version: WozVersion::Unknown, is_write_protected: true, }
     }
 
     pub fn path(&self) -> String { self.path.to_string() }

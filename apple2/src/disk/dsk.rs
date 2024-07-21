@@ -5,7 +5,7 @@ use crate::debug::hex_dump;
 use crate::disk::bit_stream::{AreaType, BitStream, BitStreams};
 use crate::disk::disk::PDisk;
 use crate::disk::disk_controller::*;
-use crate::disk::disk_info::{DiskInfo, DiskType};
+use crate::disk::disk_info::{DiskInfo, WozVersion};
 use crate::ui_log;
 
 #[derive(Clone)]
@@ -85,7 +85,7 @@ impl Dsk {
             disk_info: DiskInfo::n(filename),
             bit_streams: BitStreams::new(bit_streams, tmap, DiskInfo::default()),
         };
-        dsk.disk_info.disk_type = DiskType::Dsk;
+        dsk.disk_info.woz_version = WozVersion::Dsk;
         Ok(dsk)
     }
 

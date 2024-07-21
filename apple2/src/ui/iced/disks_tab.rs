@@ -1,5 +1,4 @@
 use iced::widget::*;
-use crate::ui::iced::style::m_group;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::{text, row};
 use std::path::Path;
@@ -13,7 +12,7 @@ use crate::constants::{BUGGY_DISKS, DISKS_SUFFIXES};
 use crate::ui::iced::message::InternalUiMessage;
 use crate::ui::iced::message::InternalUiMessage::{LoadDrive, LoadHardDrive};
 use crate::ui::iced::tab::Tab;
-use crate::ui::iced::style::{disks, MColor};
+use crate::ui::iced::style::{disks, MColor, m_group};
 use crate::ui_log;
 
 #[derive(Default)]
@@ -141,7 +140,9 @@ impl DisksTab {
 
 fn drive_button_style(theme: &Theme, status: Status) -> button::Style {
     let mut style = button::primary(theme, status);
-    style.background = Some(Background::Color(Color::from_rgb8(0x46, 0x46, 0x46)));
+    if status == Status::Active {
+        style.background = Some(Background::Color(Color::from_rgb8(0x46, 0x46, 0x46)));
+    }
     style
 }
 

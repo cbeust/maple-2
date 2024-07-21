@@ -1,9 +1,10 @@
 use std::cmp::min;
 use std::f32::consts::PI;
 use iced::{Color, Element, Length, Rectangle, Renderer, Size, Theme};
+use iced::advanced::mouse;
 use iced::mouse::Cursor;
 use iced::widget::{Canvas};
-use iced::widget::canvas::{Cache, Geometry, Program};
+use iced::widget::canvas::{Cache, Event, event, Geometry, Program};
 use crate::disk::disk::Disk;
 use crate::ui::iced::message::InternalUiMessage;
 use crate::ui::iced::shared::Shared;

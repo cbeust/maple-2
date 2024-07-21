@@ -45,7 +45,7 @@ pub const FLASH_FREQUENCY_HZ: u8 = 4;
 
 /// Magnification of the screen
 pub(crate) const DEFAULT_MAGNIFICATION: u16 = 4;
-pub(crate) const DEFAULT_SPEED_HZ: u64 = 1_300_000;
+pub(crate) const DEFAULT_SPEED_HZ: u64 = 1_800_000;
 
 /// Disk controller: read bytes, bits, or use the LSS
 #[derive(PartialEq)]
@@ -122,12 +122,9 @@ lazy_static! {
 
     /// Disks that are not booting or not working properly
     pub static ref BUGGY_DISKS: Vec<String> = vec![
-        "Bruce Lee".to_string(), // Requires joystick
-        "Crystal Quest".to_string(),
         "Frogger".to_string(),
         "Maniac Mansion".to_string(), // Infinite loop at $204
-        "Prince of Persia".to_string(),
-        "Stargate".to_string(),
+        "Stargate".to_string(), // I/O error
         "DOS 3.2".to_string(),
         "Zork r5".to_string(),
         "Akalabeth".to_string(),
@@ -140,11 +137,21 @@ lazy_static! {
         "Bug Attack".to_string(),
         "Seafox".to_string(), // https://github.com/AppleWin/AppleWin/issues/668
         "Micro Invaders".to_string(),
-        // Newsroom is up there with Wizardry and Sun Dog for the most non-working disks in my experience. I keep trying to image new copies but only half the time does the program disk work.
+        // Newsroom is up there with Wizardry and Sun Dog for the most non-working disks in my
+        // experience. I keep trying to image new copies but only half the time does the
+        // program disk work.
         // It requires a custom bit timing
         // On the woz
         // For the entire disk
         "Newsroom".to_string(),
+        // Wings of Fury
+        // Some programs will reset the data latch mid way through a nibble (via LDA $C08D,x).
+        // This will cause the incoming data stream to read offset from the normal nibble starts.
+        // These streams will usually incorporate timing bits between nibbles that will not
+        // become data bits instead. Some good test candidates for this are "Wings of Fury"
+        // and "Stickybear Town Builder". If you can get to the title screens, then you
+        // have passed.
+        "Wings".to_string(),
     ];
 
     pub static ref DEFAULT_DISKS_DIRECTORIES: Vec<String> = vec![];

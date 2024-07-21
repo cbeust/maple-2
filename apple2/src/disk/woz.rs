@@ -6,8 +6,9 @@ use crate::disk::bit_stream::{BitStream, BitStreams};
 use crate::disk::disk::PDisk;
 use crate::disk::disk_controller::{MAX_PHASE};
 use crate::disk::disk_info::DiskInfo;
-use crate::disk::disk_info::DiskType::{Woz1, Woz2};
+use crate::disk::disk_info::WozVersion::{Woz1, Woz2};
 use crate::disk::dsk_to_woz::crc32;
+use crate::disk::woz::DiskType::ThreePointFive;
 use crate::misc::{bit, save};
 use crate::ui_log;
 
@@ -25,9 +26,18 @@ pub struct Woz {
     pub info_chunk: InfoChunk,
 }
 
+
+#[derive(Clone, Default, PartialEq)]
+enum DiskType {
+    #[default]
+    FiveAndAQuarter,  // 5 1/4
+    ThreePointFive,  // 3.5
+}
+
 #[derive(Clone, Default)]
 struct InfoChunk {
     version: u8,
+    disk_type: DiskType,
     write_protected: bool,
 }
 
@@ -154,23 +164,27 @@ impl Woz {
             end = woz.i >= bytes.len();
         }
 
-        // Now decode the bitstreams if we're not just reading the version number
-        if ! quick {
-            let disk_type = if woz.version() == 1 { Woz1 } else { Woz2 };
-            woz.disk_info = DiskInfo::new2(woz.meta.get("title").cloned(), filename,
-                woz.meta.clone(), disk_type, woz.is_write_protected());
-            woz.disk_info.disk_type = if woz.info_chunk.version == 1 { Woz1 } else { Woz2 };
-            match woz.bytes_to_bit_streams(bytes, woz.disk_info.clone()) {
-                Ok(bb) => {
-                    woz.bit_streams = bb;
-                    Ok(woz)
-                }
-                Err(err) => { Err(err) }
-            }
+        if woz.info_chunk.disk_type == ThreePointFive {
+            Err("3.5 disk not supported".into())
         } else {
-            woz.disk_info = DiskInfo::n(filename);
-            woz.disk_info.disk_type = if woz.info_chunk.version == 1 { Woz1 } else { Woz2 };
-            Ok(woz)
+            // Now decode the bitstreams if we're not just reading the version number
+            if !quick {
+                let woz_version = if woz.version() == 1 { Woz1 } else { Woz2 };
+                woz.disk_info = DiskInfo::new2(woz.meta.get("title").cloned(), filename,
+                    woz.meta.clone(), woz_version, woz.is_write_protected());
+                woz.disk_info.woz_version = if woz.info_chunk.version == 1 { Woz1 } else { Woz2 };
+                match woz.bytes_to_bit_streams(bytes, woz.disk_info.clone()) {
+                    Ok(bb) => {
+                        woz.bit_streams = bb;
+                        Ok(woz)
+                    }
+                    Err(err) => { Err(err) }
+                }
+            } else {
+                woz.disk_info = DiskInfo::n(filename);
+                woz.disk_info.woz_version = if woz.info_chunk.version == 1 { Woz1 } else { Woz2 };
+                Ok(woz)
+            }
         }
     }
 
@@ -467,12 +481,13 @@ impl Woz {
         // println!("==== INFO");
         let version = self.read8(bytes);
         // println!("  Version:{}", version);
-        let disk_type = if self.read8(bytes) == 1 { "5.25" } else { "3.5" };
+        let disk_type = if self.read8(bytes) == 1 { DiskType::FiveAndAQuarter }
+            else { DiskType::ThreePointFive };
         let write_protected = self.read8(bytes) == 1;
         // println!("  Write protected:{}",
 
         self.skip(57);
-        InfoChunk { version, write_protected }
+        InfoChunk { version, write_protected, disk_type }
 
         // println!("  Synchronized:{}", if self.read(bytes) == 1 { "Yes" } else { "No" });
         // println!("  Cleaned:{}", if self.read(bytes) == 1 { "Yes" } else { "No" });

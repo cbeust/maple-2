@@ -2,8 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crossbeam::channel::{Receiver, Sender};
 use iced::{Color, Settings, Size, Subscription, Task, window};
-use iced::{Element, executor, Theme};
-use iced::widget::canvas::Program;
+use iced::{Element, Theme};
 use iced::widget::text;
 use iced::window::Position;
 
@@ -21,10 +20,9 @@ use crate::ui::iced::disks_tab::DisksTab;
 use crate::ui::iced::keyboard;
 use crate::ui::iced::main_window::MainWindow;
 use crate::ui::iced::memory_view::MemoryType;
-use crate::ui::iced::message::InternalUiMessage;
+use crate::ui::iced::message::{InternalUiMessage, SpecialKeyMsg};
 use crate::ui::iced::shared::Shared;
 use crate::ui::iced::style::*;
-use crate::ui::iced::tab::Tab;
 
 type UiMessage = ToUi;
 
@@ -157,6 +155,20 @@ impl EmulatorApp {
         };
 
         match message {
+            SpecialKey(key, pressed) => {
+                let address = match key {
+                    SpecialKeyMsg::AltLeft => { 0xc061 }
+                    SpecialKeyMsg::AltRight => { 0xc062 }
+                    _ => { 0 }
+                };
+                if address != 0 {
+                    send_message!(&self.sender, SetMemory(SetMemoryMsg {
+                        address,
+                        bytes: vec![if pressed { 0x80 } else { 0 }],
+                }));
+
+                }
+            }
             Key(key) => {
                 send_message!(&self.sender, SetMemory(SetMemoryMsg {
                     address: 0xc000,

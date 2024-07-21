@@ -4,6 +4,12 @@ use crate::disk::disk_info::DiskInfo;
 use crate::ui::iced::memory_view::MemoryType;
 use crate::ui::iced::ui_iced::TabId;
 
+#[derive(Clone, Debug)]
+pub enum SpecialKeyMsg {
+    AltLeft,
+    AltRight,
+}
+
 /// Messages received from the CPU are of type ToUi, but we need to have our own
 /// UI messages for iced. The structure below duplicates ToUi and adds other enum variants
 /// to manage the UI.
@@ -50,8 +56,11 @@ pub enum InternalUiMessage {
 
     /// Registers from the DebuggerTab
     RegisterA(String),
-    /// A key has been pressed
+    /// A key has been pressed that the Apple ][ can consume
     Key(u8),
+    /// Special key interpreted by the emulator (e.g. Alt for joystick button)
+    /// bool: true if pressed, false if released
+    SpecialKey(SpecialKeyMsg, bool),
 
     /// Select the memory type (main/aux)
     DebuggerMemoryTypeSelected(MemoryType),

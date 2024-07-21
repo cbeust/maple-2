@@ -50,12 +50,18 @@ impl Clone for Disk {
 
 impl Disk {
     pub fn new(path: &str, quick: bool, sender: Option<Sender<ToUi>>) -> Result<Disk, String> {
-        let pdisk = Self::new_pdisk(path, quick)?;
-        Ok(Self {
-            pdisk,
-            bit_position: 0,
-            sender,
-        })
+        match Self::new_pdisk(path, quick) {
+            Ok(pdisk) => {
+                Ok(Self {
+                    pdisk,
+                    bit_position: 0,
+                    sender,
+                })
+            }
+            Err(e) => {
+                Err(e)
+            }
+        }
     }
 
     pub fn new_with_disk_info(disk_info: Option<DiskInfo>) -> Result<Disk, String> {
