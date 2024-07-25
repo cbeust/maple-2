@@ -72,6 +72,7 @@ impl MainWindow {
             show_drives: Shared::hard_drive(0).is_none(),
         };
         result.disks_tab.update(Init(config_file.clone()));
+        result.nibbles_tab.update(Init(config_file.clone()));
 
         result
     }
@@ -163,6 +164,9 @@ impl Window for MainWindow {
                 }
             }
             DiskInserted(is_hard_drive, drive, disk_info) => {
+                if drive == 0 {
+                    self.nibbles_tab.update(DiskInserted(is_hard_drive, drive, disk_info.clone()));
+                }
                 self.disk_tab.update2(DiskInserted(is_hard_drive, drive, disk_info));
             }
             TabSelected(selected) => {

@@ -8,18 +8,15 @@ use iced::widget::{button, Column};
 use iced::widget::button::Status;
 use crate::disk::bit_stream::{AreaType, TrackType};
 use crate::Disk;
+use crate::disk::disk_info::DiskInfo;
 use crate::ui::iced::shared::Shared;
 use crate::ui::iced::message::{InternalUiMessage, InternalUiMessage::*};
 use crate::ui::iced::tab::Tab;
 use crate::ui::iced::style::{m_container, m_group, MColor};
 
 #[derive(Default)]
-pub struct NibblesTab;
-
-impl NibblesTab {
-    fn disk(&self) -> Result<Disk, String> {
-        Disk::new_with_disk_info(Shared::drive(0))
-    }
+pub struct NibblesTab {
+    current_disk: Option<Disk>,
 }
 
 /// Highlight the current phase
@@ -36,6 +33,27 @@ fn tttl(track_type: &TrackType) -> Text<'static> {
         TrackType::Standard => { text("\u{25cf}").color(MColor::green()) }
         TrackType::Nonstandard => { text("\u{25cf}").color(MColor::red()) } // text("\u{1F534}") }
         TrackType::Empty => { text(" ") }
+    }
+}
+
+impl NibblesTab {
+    pub fn update(&mut self, message: InternalUiMessage) {
+        fn to_disk(di: Option<DiskInfo>) -> Option<Disk> {
+            match Disk::new_with_disk_info(di) {
+                Ok(d) => { Some(d) }
+                Err(_) => { None }
+            }
+        }
+
+        match message {
+            Init(config_file) => {
+                self.current_disk = to_disk(config_file.drive_1().map(|p| DiskInfo::n(&p)));
+            }
+            DiskInserted(_, _, disk_info) => {
+                self.current_disk = to_disk(disk_info);
+            }
+            _ => {}
+        }
     }
 }
 
@@ -96,8 +114,8 @@ impl Tab for NibblesTab {
         //
         // Track map
         //
-        let disk = self.disk().clone();
-        let t2 = if let Ok(ref disk) = &disk {
+        let disk = self.current_disk.clone();
+        let t2 = if let Some(ref disk) = &disk {
             (0..160).map(|phase| {
                 disk.analyze_track(phase).track_type
             }).collect::<Vec<TrackType>>()
@@ -125,7 +143,7 @@ impl Tab for NibblesTab {
         let SYNC_BITS: Color = MColor::blue2();
 
         let mut column: Column<InternalUiMessage> = Column::new();
-        if let Ok(ref disk) = &disk {
+        if let Some(ref disk) = &disk {
             let mut address = 0_u16;
             let analyzed_track = disk.analyze_track(Shared::phase_160(0) as usize);
             let nibbles = &analyzed_track.nibbles;

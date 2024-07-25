@@ -132,7 +132,7 @@ impl Woz {
         woz.i = 8;
         let _checksum = woz.read32(bytes);
         if _checksum != 0 {
-            let expected = crc32(0, &bytes[12..]);
+            let _expected = crc32(0, &bytes[12..]);
             // println!("Checksum: {:04X} expected: {:04X}", _checksum, expected);
             // println!();
         }
@@ -296,7 +296,7 @@ impl Woz {
     }
 
     fn push_n(buffer: &mut Vec<u8>, count: usize, byte: u8) {
-        for i in 0..count { buffer.push(byte); }
+        for _ in 0..count { buffer.push(byte); }
     }
 
     fn push_multiple(buffer: &mut Vec<u8>, s: &[u8]) {
@@ -373,24 +373,28 @@ impl Woz {
     }
 
     fn bytes_to_bit_streams(&self, bytes: &[u8], disk_info: DiskInfo) -> Result<BitStreams, String> {
-        let mut bit_streams: Vec<BitStream> = Vec::new();
+        let mut bit_streams: Vec<BitStream> = Vec::with_capacity(TMAP_SIZE);
+        for i in 0..TMAP_SIZE {
+            bit_streams.push(BitStream::random());
+        }
         let mut seen: HashSet<u8> = HashSet::new();
         for phase in 0..TMAP_SIZE {
             let tmap = self.tmap[phase];
-            if tmap != 0xff && ! seen.contains(&tmap) {
+            if tmap != 0xff { // && ! seen.contains(&tmap) {
                 match &self.tracks {
                     (Some(trackv1), None) => {
                         let track = &trackv1[tmap as usize];
                         let bit_slice = self.bytes_to_bits(&track.byte_stream, track.bit_count as usize);
-                        bit_streams.push(BitStream::new(bit_slice));
+                        bit_streams[phase] = BitStream::new(bit_slice);
                         seen.insert(tmap);
                     }
                     (None, Some(trackv2)) => {
                         let track = trackv2[tmap as usize];
                         let start: usize = track.starting_block as usize * 512;
+                        // println!("Phase {phase} mapped to {tmap} offset:{start}");
                         let bit_slice =
                             self.bytes_to_bits(&bytes[start..bytes.len() - 1], track.bit_count as usize);
-                        bit_streams.push(BitStream::new(bit_slice));
+                        bit_streams[phase] = BitStream::new(bit_slice);
                         seen.insert(tmap);
                     }
                     _ => {
@@ -481,30 +485,23 @@ impl Woz {
         let version = self.read8(bytes);
         // println!("  Version:{}", version);
         let disk_type = if self.read8(bytes) == 1 { DiskType::FiveAndAQuarter }
-            else { DiskType::ThreePointFive };
+            else { ThreePointFive };
         let write_protected = self.read8(bytes) == 1;
-        // println!("  Write protected:{}",
+        let _synchronized = self.read8(bytes);
+        let _cleaned = self.read8(bytes);
+        let _creator = self.read_many(bytes, 32);
+        let _disk_sides = self.read8(bytes);
+        let _boot_sector_format = self.read8(bytes);
+        let _optimal_bit_timing = self.read8(bytes);
+        let _compatible_hardware = self.read16(bytes);
+        let _required_ram = self.read16(bytes);
+        let _largest_track = self.read16(bytes);
+        let _flux_block = self.read16(bytes);
+        let _largest_flux_track = self.read16(bytes);
 
-        self.skip(57);
+        self.skip(10);
+
         InfoChunk { version, write_protected, disk_type }
-
-        // println!("  Synchronized:{}", if self.read(bytes) == 1 { "Yes" } else { "No" });
-        // println!("  Cleaned:{}", if self.read(bytes) == 1 { "Yes" } else { "No" });
-        // println!("  Creator:{}", self.read_string(bytes, 32));
-        // println!("  Disk sides:{}", self.read(bytes));
-        // println!("  Boot format: {}", match self.read(bytes) {
-        //     1 => { "16 sectors" }
-        //     2 => { "13 sectors" }
-        //     3 => { "Both 13 and 16 sectors" }
-        //     _ => { "Unknown" }
-        // });
-        // println!("  Optimal bit timing:{}", self.read(bytes));
-        // println!("  Compatible hardware:{:0b}", self.read2(bytes));
-        // println!("  Required RAM:{}K", self.read2(bytes));
-        // println!("  Largest track:{}K", self.read2(bytes));
-        // println!("  FLUX block:{}K", self.read2(bytes));
-        // println!("  Largest FLUX track:{}K", self.read2(bytes));
-        // self.skip(10);
     }
 
     fn skip(&mut self, n: usize) {
