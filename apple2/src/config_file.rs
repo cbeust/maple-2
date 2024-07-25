@@ -6,7 +6,8 @@ use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use cpu::constants::DEFAULT_EMULATOR_SPEED_HZ;
-use crate::constants::{ALL_DISKS, DEFAULT_DISK_INDICES, DEFAULT_DISKS_DIRECTORIES, DEFAULT_MAGNIFICATION, DEFAULT_SPEED_HZ};
+use crate::constants::{DEFAULT_DISKS_DIRECTORIES, DEFAULT_MAGNIFICATION, DEFAULT_SPEED_HZ};
+use crate::roms::RomType;
 // use crate::ui::ui_egui::{MainTab};
 use crate::ui_log;
 
@@ -41,6 +42,7 @@ pub struct ConfigFile {
 
     #[serde(skip)]
     pub(crate) breakpoints_hash: HashSet<u16>,
+    rom_type: Option<RomType>,
 }
 
 impl Default for ConfigFile {
@@ -56,6 +58,7 @@ impl Default for ConfigFile {
             tab: 0,
             breakpoints: Vec::new(),
             breakpoints_hash: HashSet::new(),
+            rom_type: Some(RomType::Apple2Enhanced),
         }
     }
 }
@@ -85,6 +88,13 @@ impl ConfigFile {
 
         result.recalculate();
         result
+    }
+
+    pub fn rom_type(&self) -> RomType {
+        match &self.rom_type {
+            None => { RomType::Apple2Enhanced }
+            Some(rt) => { rt.clone() }
+        }
     }
 
     pub fn hard_drive_1(&self) -> Option<String> {
@@ -210,22 +220,17 @@ impl ConfigFile {
                 let existing = DEFAULT_DISKS_DIRECTORIES.iter()
                     .filter(|s| Path::new(s).exists()).cloned()
                     .collect::<Vec<String>>();
-                let drive_1 = DEFAULT_DISK_INDICES[0].map(|index| &ALL_DISKS[index])
-                    .filter(|p| Path::new(&p.path).exists())
-                    .map(|di| di.path.clone());
-                let drive_2 = DEFAULT_DISK_INDICES[1].map(|index|& ALL_DISKS[index])
-                    .filter(|p| Path::new(&p.path).exists())
-                    .map(|di| di.path.clone());
                 let user_config = ConfigFile {
                     emulator_speed_hz: DEFAULT_EMULATOR_SPEED_HZ,
                     disk_directories: existing,
-                    drive_1, drive_2,
+                    drive_1: None, drive_2: None,
                     hard_drive_1: None,
                     hard_drive_2: None,
                     tab: 0,
                     magnification: Some(DEFAULT_MAGNIFICATION),
                     breakpoints: Vec::new(),
                     breakpoints_hash: HashSet::new(),
+                    rom_type: Some(RomType::Apple2Enhanced),
                 };
                 user_config.save();
             }

@@ -16,7 +16,6 @@ use crate::rolling_times::RollingTimes;
 use crate::{configure_log, send_message, ui_log};
 use crate::config_file::ConfigFile;
 use crate::constants::{CPU_REFRESH_MS, PC, START};
-use crate::ui::iced::message::InternalUiMessage;
 use crate::ui::iced::shared::Shared;
 
 #[derive(Clone, Debug, Default)]

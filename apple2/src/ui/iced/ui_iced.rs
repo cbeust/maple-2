@@ -97,6 +97,7 @@ struct EmulatorApp {
     main_id: Option<window::Id>,
     opening_debugger: bool,
     emulator_speed: f32,
+    exit: bool,
 }
 
 pub trait Window {
@@ -120,6 +121,7 @@ impl Default for EmulatorApp {
             config_file: Default::default(),
             opening_debugger: false,
             emulator_speed: 0.0,
+            exit: false,
         }
     }
 }
@@ -170,10 +172,15 @@ impl EmulatorApp {
                 }
             }
             Key(key) => {
+                for i in 0..16 {
                 send_message!(&self.sender, SetMemory(SetMemoryMsg {
-                    address: 0xc000,
+                        address: 0xc000 + i,
                     bytes: vec![key],
                 }));
+            }
+            }
+            Exit => {
+                self.exit = true;
             }
             NewDirectorySelected(_)
                 | TabSelected(_)
@@ -352,7 +359,7 @@ impl EmulatorApp {
                                 result = Some(DriveSelected(drive));
                             }
                             ToUi::Exit => {
-                                // Should cancel the task here
+                                result = Some(Exit);
                             }
                             _ => {
                                 // println!("Ignoring mapping message: {m:#?}");
@@ -376,7 +383,7 @@ impl EmulatorApp {
             window::close_events().map(WindowClosed),
             // stream,
         ];
-        if matches!(Shared::cpu().run_status, RunStatus::Continue(_)) {
+        if ! self.exit && matches!(Shared::cpu().run_status, RunStatus::Continue(_)) {
             subscriptions.push(stream);
         }
 

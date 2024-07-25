@@ -11,7 +11,7 @@ use crate::debug::hex_dump_at;
 use crate::memory_constants::*;
 use crate::messages::ToUi;
 use crate::messages::ToUi::RgbModeUpdate;
-use crate::roms::{DISK2_ROM, SMARTPORT_ROM};
+use crate::roms::{DISK2_ROM, Roms, RomType, SMARTPORT_ROM};
 use crate::{send_message, ui_log};
 use crate::smartport::SmartPort;
 use crate::ui::iced::shared::Shared;
@@ -153,10 +153,9 @@ impl Apple2Memory {
         self.memories[AUX].to_vec()
     }
 
-    pub fn load_roms(&mut self) {
-        let enhanced_rom = include_bytes!("../files/Apple2e_Enhanced.rom");
-        self.load_bytes(enhanced_rom, 0xc000, 0, 0, true /* main mem */);
-        // self.load_bytes(&APPLE_2E_ROM, 0xc000, 0, 0, true /* main mem */);
+    pub fn load_roms(&mut self, rom_type: RomType) {
+        let rom_info = Roms::default().get_rom(rom_type);
+        self.load_bytes(&rom_info.bytes, rom_info.offset, 0, 0, true /* main mem */);
 
         // Disk2 at $C600 in slot (aux mem)
         self.load_bytes(&DISK2_ROM, 0xc600, 0 /* skip */, 0x100, false /* aux mem */);

@@ -67,67 +67,13 @@ pub(crate) fn pc() -> String {
     format!("{:04X}", *PC.read().unwrap())
 }
 
-pub(crate) const DEFAULT_DISK_INDICES: [Option<usize>; 2] =
-    [Some(33,  /* 39 pics 40 KQ, 17 DOS, 41 bad */), Some(39)];
-
-// Disks
 lazy_static! {
-    pub static ref ALL_DISKS: Vec<DiskInfo> = vec![
-        DiskInfo::new("DOS 3.3", "d:\\Apple disks\\Apple DOS 3.3.dsk"), // 0
-        DiskInfo::new("Dos 3.3 August 1980", "d:\\Apple disks\\Apple DOS 3.3 August 1980.dsk"), // 1
-        DiskInfo::new("NTSC", "d:\\Apple disks\\ntsc.dsk"), // 2
-        DiskInfo::new("master", "d:\\Apple disks\\master.dsk"), // 3
-        DiskInfo::new("Sherwood Forest", "d:\\Apple disks\\Sherwood_Forest.dsk"),  // 4
-        DiskInfo::new("A2Audit", "C:\\Users\\Ced\\kotlin\\sixty\\src\\test\\resources\\audit.dsk"), // 5
-        DiskInfo::new("ProDOS 2.4.1", "C:\\Users\\Ced\\kotlin\\sixty\\disks\\ProDOS_2_4_1.dsk"), // 6
-        DiskInfo::new("Cedric", "d:\\Apple disks\\cedric.dsk"), // 7
-        DiskInfo::new("Transylvania *", "d:\\Apple disks\\TRANS1.DSK"), // 8
-        DiskInfo::new("Masquerade - 1", "C:\\Users\\Ced\\kotlin\\sixty\\disks\\Masquerade-1.dsk"), // 9
-        DiskInfo::new("Masquerade - 2", "C:\\Users\\Ced\\kotlin\\sixty\\disks\\Masquerade-2.dsk"), // 10
-        DiskInfo::new("Ultima 4 - 1", "C:\\Users\\Ced\\kotlin\\sixty\\disks\\Ultima4.dsk"), // 11
-        DiskInfo::new("Blade of Blackpoole - 1", "d:\\Apple disks\\The Blade of Blackpoole side A.woz"), // 12
-        DiskInfo::new("Blade of Blackpoole - 2", "d:\\Apple disks\\The Blade of Blackpoole side B.woz"), // 13
-        DiskInfo::new("The Coveted Mirror - 1", "d:\\Apple disks\\COVETED1.DSK"), // 14
-        DiskInfo::new("The Coveted Mirror - 2", "d:\\Apple disks\\COVETED2.DSK"), // 15
-        DiskInfo::new("Sherwood Forest", "d:\\Apple disks\\Sherwood Forest.woz"), // 16
-        DiskInfo::new("Apple DOS 3.3", "d:\\Apple disks\\DOS 3.3.woz"), // 17
-        DiskInfo::new("Blazing Paddles", "d:\\Apple disks\\Blazing Paddles (Baudville).woz"), // 18
-        DiskInfo::new("Bouncing Kamungas", "d:\\Apple disks\\Bouncing Kamungas.woz"), // 19
-        DiskInfo::new("Commando - 1", "d:\\Apple disks\\Commando - DIsk 1, Side A.woz"), // 20
-        DiskInfo::new("Night Mission Pinball", "d:\\Apple disks\\Night Mission Pinball.woz"), // 21
-        DiskInfo::new("Rescue Raiders", "d:\\Apple disks\\Rescue Raiders - Disk 1, Side B.woz"), // 22
-        DiskInfo::new("Karateka", "d:\\Apple disks\\Karateka.dsk"), // 23
-        DiskInfo::new("Dark Lord - 1", "d:\\Apple disks\\Dark Lord side A.woz"), // 24
-        DiskInfo::new("Dark Lord - 2", "d:\\Apple disks\\Dark Lord side B.woz"), // 25
-        DiskInfo::new("Sammy Lightfoot", "d:\\Apple disks\\Sammy Lightfoot - Disk 1, Side A.woz"), // 26
-        DiskInfo::new("Stargate - 1 *", "d:\\Apple disks\\Stargate - Disk 1, Side A.woz"), // 27
-        DiskInfo::new("Stellar 7", "d:\\Apple disks\\Stellar 7.woz"), // 28
-        DiskInfo::new("Aztec", "d:\\Apple disks\\Aztec (4am crack).dsk"), // 29
-        DiskInfo::new("Aztec", "d:\\Apple disks\\Aztec.woz"), // 30
-        DiskInfo::new("Conan - 1", "d:\\Apple disks\\Conan side A.woz"), // 31
-        DiskInfo::new("Conan - 2", "d:\\Apple disks\\Conan side B.woz"), // 32
-        DiskInfo::new("Adventureland - 1", "d:\\Apple disks\\Adventureland - 1.woz"), // 33
-        DiskInfo::new("Adventureland - 2", "d:\\Apple disks\\Adventureland - 2.woz"), // 34
-        DiskInfo::new("Arctic Fox", "d:\\Apple disks\\Arcticfox.woz"), // 35
-        DiskInfo::new("Frogger", "d:\\Apple disks\\Frogger.woz"), // 36
-        DiskInfo::new("Demo by Five Touch", "d:\\Apple disks\\patched.woz"), // 37
-        DiskInfo::new("Wizardry 1", "d:\\Apple disks\\Wizardry 1 - 1.woz"), // 38
-        DiskInfo::new("a2fc", "d:\\Apple disks\\A2BestPix_Top1.DSK"), // 39
-        DiskInfo::new("King's Quest 1 - 1", "d:\\Apple disks\\King's Quest - A.woz"), // 40
-        DiskInfo::new("test", "c:\\Users\\Ced\\rust\\sixty.rs\\bad.woz"), // 41
-        DiskInfo::new("Star Trek - 1", "d:\\Apple disks\\Star Trek - First Contact - Disk 1, Side 1.woz"), // 42
-        DiskInfo::n("d:\\Apple disks\\Airheart.woz"), // 43
-        DiskInfo::n("d:\\Apple disks\\Apple Galaxian.woz"), // 44
-    ];
-
     /// Disks that are not booting or not working properly
     pub static ref BUGGY_DISKS: Vec<String> = vec![
-        "Frogger".to_string(),
         "Maniac Mansion".to_string(), // Infinite loop at $204
         "Stargate".to_string(), // I/O error
         "DOS 3.2".to_string(),
-        "Zork r5".to_string(),
-        "Akalabeth".to_string(),
+        "Akalabeth".to_string(),  // 3.2?
         "Ankh".to_string(),
         "Batman".to_string(),
         "Algernon".to_string(),  // broken if q6 and q7 are tested in lss::step()
@@ -140,18 +86,9 @@ lazy_static! {
         // Newsroom is up there with Wizardry and Sun Dog for the most non-working disks in my
         // experience. I keep trying to image new copies but only half the time does the
         // program disk work.
-        // It requires a custom bit timing
-        // On the woz
-        // For the entire disk
+        // It requires a custom bit timing on the woz for the entire disk (need FLUX)
         "Newsroom".to_string(),
-        // Wings of Fury
-        // Some programs will reset the data latch mid way through a nibble (via LDA $C08D,x).
-        // This will cause the incoming data stream to read offset from the normal nibble starts.
-        // These streams will usually incorporate timing bits between nibbles that will not
-        // become data bits instead. Some good test candidates for this are "Wings of Fury"
-        // and "Stickybear Town Builder". If you can get to the title screens, then you
-        // have passed.
-        "Wings".to_string(),
+        "Mr. Do".to_string(),
     ];
 
     pub static ref DEFAULT_DISKS_DIRECTORIES: Vec<String> = vec![];

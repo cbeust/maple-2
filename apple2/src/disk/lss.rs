@@ -43,19 +43,19 @@ impl Lss {
 
 impl Lss {
     pub fn on_pulse(&mut self, q6: bool, q7: bool, motor_on: bool, drive: &mut Drive) {
-        let phase80 = drive.get_phase80();
+        let phase_160 = drive.get_phase_160();
         if let Some(d) = &mut drive.disk {
             if motor_on {
-                self.step(q6, q7, motor_on, phase80, d);
+                self.step(q6, q7, motor_on, phase_160, d);
             }
         }
     }
 
-    fn step(&mut self, q6: bool, q7: bool, motor_on: bool, phase80: usize, disk: &mut Disk) {
+    fn step(&mut self, q6: bool, q7: bool, motor_on: bool, phase_160: usize, disk: &mut Disk) {
         let mut pulse = 0;
         // Adding q6 and q7 tests break Algernonn
         if self.clock == 4 && ! q7 && ! q6 {
-            pulse = disk.next_bit(phase80 * 2);
+            pulse = disk.next_bit(phase_160);
             if pulse == 0 {
                 // Just need to know that there were more than 2 zeros in a row, no point in saturating
                 // that number

@@ -11,7 +11,7 @@ mod cycle_actions;
 mod misc;
 mod alog;
 mod test_memory;
-mod roms;
+pub mod roms;
 mod memory_constants;
 mod macros;
 mod mini_fb;
@@ -24,6 +24,7 @@ mod disk {
     pub mod drive;
     pub mod dsk;
     pub mod woz;
+    mod woz_test;
     pub mod bit_stream;
     pub mod lss;
     pub mod dsk_to_woz;
@@ -57,7 +58,10 @@ mod ui {
 
 use cpu::messages::ToLogging;
 use crossbeam::channel::{Receiver, Sender, unbounded};
-use std::{fs, thread};
+use std::{fs, io, thread};
+use std::collections::{HashMap, HashSet};
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
@@ -220,11 +224,7 @@ fn start(egui: bool) -> eframe::Result<()> {
     let _ = SENDER_TO_UI.set(sender.clone());
     let (sender2, receiver2): (Sender<ToCpu>, Receiver<ToCpu>) = unbounded();
     let benchmark = false;
-    let audit = false;
-    let mut disks = if audit {
-        [ Some(ALL_DISKS[5].clone()), None ]
-    }
-    else {
+    let mut disks = {
         let to_di = |drive: Option<String>| {
             let di = drive.map(|s| Disk::new(&s, false, Some(sender.clone())));
             if let Some(di2) = di {
@@ -316,46 +316,47 @@ fn start(egui: bool) -> eframe::Result<()> {
         //
         // The file watcher thread
         //
-        let config2 = config.copy();
-        let sender3 = sender2.clone();
-        let _ = thread::Builder::new().name("Maple // - File watcher".to_string()).spawn(move || {
-            // Add a path to be watched. All files and directories at that path and
-            // below will be monitored for changes.
-            let (tx, rx) = std::sync::mpsc::channel();
-            let mut debouncer = new_debouncer(Duration::from_secs(1), tx).unwrap();
-            for wf in config2.watched_files {
-                let path = &wf.path;
-                if ! Path::new(&path).exists() {
-                    println!("Path {} doesn't exist, ignoring", path);
-                } else {
-                    debouncer.watcher().watch(path.as_ref(), RecursiveMode::NonRecursive).unwrap();
-                    sender3.send(FileModified(wf.clone())).unwrap();
-                    println!("Sending FileModified {}", wf.clone().path);
+        if true {
+            let config2 = config.copy();
+            let sender3 = sender2.clone();
+            let _ = thread::Builder::new().name("Maple // - File watcher".to_string()).spawn(move || {
+                // Add a path to be watched. All files and directories at that path and
+                // below will be monitored for changes.
+                let (tx, rx) = std::sync::mpsc::channel();
+                let mut debouncer = new_debouncer(Duration::from_secs(1), tx).unwrap();
+                for wf in config2.watched_files {
+                    let path = &wf.path;
+                    if !Path::new(&path).exists() {
+                        println!("Path {} doesn't exist, ignoring", path);
+                    } else {
+                        debouncer.watcher().watch(path.as_ref(), RecursiveMode::NonRecursive).unwrap();
+                        sender3.send(FileModified(wf.clone())).unwrap();
+                        println!("Sending FileModified {}", wf.clone().path);
+                    }
                 }
-            }
 
-            for res in rx {
-                match res {
-                    Ok(events) => {
-                        for event in events {
-                            match event.kind {
-                                DebouncedEventKind::Any => {
-                                    let wf = config.watched_files.iter()
-                                        .find(|wf| wf.path == event.path.to_str().unwrap()).unwrap();
-                                    sender3.send(FileModified(wf.clone())).unwrap();
-                                    println!("Debounced event");
+                for res in rx {
+                    match res {
+                        Ok(events) => {
+                            for event in events {
+                                match event.kind {
+                                    DebouncedEventKind::Any => {
+                                        let wf = config.watched_files.iter()
+                                            .find(|wf| wf.path == event.path.to_str().unwrap()).unwrap();
+                                        sender3.send(FileModified(wf.clone())).unwrap();
+                                        println!("Debounced event");
+                                    }
+                                    DebouncedEventKind::AnyContinuous => { println!("Any event") }
+                                    _ => { println!("Unknownn event"); }
                                 }
-                                DebouncedEventKind::AnyContinuous => { println!("Any event")}
-                                _ => { println!("Unknownn event"); }
+                                log::info!("Change: {event:?}")
                             }
-                            log::info!("Change: {event:?}")
-
-                        }
-                    },
-                    Err(error) => log::error!("Error: {error:?}"),
+                        },
+                        Err(error) => log::error!("Error: {error:?}"),
+                    }
                 }
-            }
-        });
+            });
+        }
 
         //
         // Main UI
@@ -392,7 +393,7 @@ pub(crate) fn create_apple2(
 
     let mut m = Apple2Memory::new(disk_infos, [di0, di1], sender.clone());
 
-    m.load_roms();
+    m.load_roms(config.config_file.rom_type());
 
     let mut cpu = AppleCpu::new(Cpu::new(m, logging_sender, config.config.clone()),
         config.clone(), sender.clone(), receiver, handle);

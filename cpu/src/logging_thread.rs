@@ -79,7 +79,7 @@ impl Logging {
         if self.config.trace_to_file && self.config.csv {
             log::info!("{}", d.to_csv());
         } else {
-            log::info!("{} {} {:?}", d.to_asm(), p, stack);
+            log::info!("{} {} {:?}", d.to_log(), p, stack);
         }
     }
 }

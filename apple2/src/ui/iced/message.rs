@@ -76,5 +76,6 @@ pub enum InternalUiMessage {
     ShowDrives,
     ShowHardDrives,
     // bool: is_hard_drive, usize: drive_number
-    Eject(bool, usize)
+    Eject(bool, usize),
+    Exit,
 }

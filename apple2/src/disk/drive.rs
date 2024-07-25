@@ -60,12 +60,12 @@ impl Drive {
         self._status = status;
     }
 
-    pub fn set_phase80(&mut self, phase: usize) {
-        self.phase160 = phase * 2;
+    pub fn set_phase_160(&mut self, phase_160: usize) {
+        self.phase160 = phase_160
     }
 
-    pub fn get_phase80(&self) -> usize {
-        self.phase160 / 2
+    pub fn get_phase_160(&self) -> usize {
+        self.phase160
     }
 
     pub fn turn_on(&mut self) {

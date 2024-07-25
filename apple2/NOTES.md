@@ -333,7 +333,45 @@ which was not wrapping at the end of the stream correctly.
 
 ## Frogger
 
-SpiraDisc protection. TBD.
+The wozaday Frogger image on boot starts by accessing every 1/4 track from 0.00 to 8.75 and then goes back down again
+by 1/4 tracks.
 
+It's checksumming slot ROMs which it checks later that they haven't changed (i.e., memory capture image used on another
+machine), $F0 and $F8 ROM. If you're seeing memory being zeroed then it has passed that check
+if you reach $B72B then it's reading the disk
+What's in $00 and $01?  They are current and requested phases for the disk.
+$01 /4 is the whole track number, %4 is the quarter-track number.
+qkumba
+okay, if you get to $B75A then it's found the address marker and is about to read the actual sector.
+If you get to $B7A9 then it read the sector and now it's checking the epilogue
+$A008 holds the error code on reboot.
 
+The next check I'm failing is at $B7F4 (which stores #$14 in $A008 and returns, proceeding to the reboot area). This is
+part of a complicated loop that seems to read and decode nibbles but which wants successive EOR's with the previously
+calculated values to be equal to 0. I pass this 16 times and then fail. I am guessing I'm on the wrong quarter track,
+that will be my next investigation
+$00 and $01 are both equal to 0, which means it's trying to read this from T0, but I notice that my phase
+is in the 5-6 range, so it's lagging. This gave me an idea: whenever the head is being asked to move or to spin
+down, I delay if it's not in motion already. What if there was a bug there? So I completely removed the
+delay and...
 
+The next bug was that the keyboard didn't seem to work. Disassembling what the game is doing, it's actually
+not checking $C000 but $C0xx with xx changing values.
+
+9C3E: A9 FF      LDA #$FF      |             
+9C40: 85 3A      STA $3A       |       A$003A
+9C42: A9 BF      LDA #$BF      |             
+9C44: 85 3B      STA $3B       |       A$003B
+9C46: A0 13      LDY #$13      |             
+9C48: D1 3A      CMP ($3A),Y   |  a$C012:v$00
+9C4A: A0 07      LDY #$07      |             
+9C4C: B1 3A      LDA ($3A),Y   |  a$C006:v$00
+9C4E: C9 A0      CMP #$A0      |             
+9C50: D0 02      BNE $9C54     |             
+9C54: C9 C4      CMP #$C4      |
+
+After I updated my code to reflect keys pressed into all these memory locations, everything is working fine and I can
+redefine keys, play the game, etc...
+
+Interestingly, Maze Craze Construction Set is now booting, it's probably using a weaker version of Spiradisc. Lunar
+Leeper and Frogger are still not booting.

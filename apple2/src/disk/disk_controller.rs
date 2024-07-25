@@ -1,28 +1,17 @@
 use std::{fs};
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fmt::{Debug, Display, Formatter};
-use std::fs::File;
-use std::io::Read;
 use std::ops::{BitXor};
-use std::path::Path;
 use crossbeam::channel::Sender;
-use rand::{random};
-use crate::disk::bit_stream::{BitStream, BitStreams, Nibble};
-use crate::constants::{HOLD, NibbleStrategy::*, NIBBLE_STRATEGY, SENDER_TO_UI};
-use crate::cycle_actions::{Actions, MotorOffAction, UpdatePhaseAction};
+use crate::disk::bit_stream::{Nibble};
+use crate::constants::{HOLD, NibbleStrategy::*, NIBBLE_STRATEGY};
+use crate::cycle_actions::{Actions, UpdatePhaseAction};
 use crate::cycle_actions::CycleAction::{UpdatePhase};
 use crate::disk::disk::{Disk};
 use crate::{send_message};
-use crate::debug::{hex_dump_fn};
 use crate::disk::disk_info::DiskInfo;
 use crate::disk::drive::{Drive};
-use crate::disk::dsk::Dsk;
-use crate::disk::woz::Woz;
 use crate::messages::ToUi;
 use crate::ui::iced::shared::*;
 use crate::messages::ToUi::{DiskSelected};
-// use crate::ui::ui_egui;
 
 /// Divide by 2 to get the phase, by 4 to get the track
 pub const MAX_PHASE: usize = 160;
@@ -195,28 +184,28 @@ impl DiskController {
         let mut new_bit_position: Option<usize> = None;
         let current_bit_position = self.current_bit_position();
 
-        for mut wrapper in &mut self.actions.actions {
+        for wrapper in &mut self.actions.actions {
             use crate::cycle_actions::CycleAction::*;
             if wrapper.wait == 0 {
                 match &wrapper.action {
                     UpdatePhase(v) => {
                         #[cfg(feature = "log_disk")]
-                        if self.drives[v.drive_index].get_phase80() != v.phase {
+                        if self.drives[v.drive_index].get_phase_160() != v.phase_160 {
                             log::info!("@@ updatePhase={}->{}",
-                                self.drives[v.drive_index].get_phase80(), v.phase);
+                                self.drives[v.drive_index].get_phase_160(), v.phase_!60);
                         }
 
-                        self.drives[v.drive_index].set_phase80(v.phase);
+                        self.drives[v.drive_index].set_phase_160(v.phase_160);
                         if let Some(disk) = &self.drives[v.drive_index].disk {
-                            let old_phase = self.drives[v.drive_index].get_phase80() * 2;
-                            let new_phase =  v.phase * 2;
+                            let old_phase = self.drives[v.drive_index].get_phase_160();
+                            let new_phase =  v.phase_160;
                             let old_length = & disk.get_stream_len(old_phase);
                             let new_length = & disk.get_stream_len(new_phase);
                             new_bit_position =
                                 Some((current_bit_position * new_length / old_length) % new_length);
                             // println!("Old position: {}  new: {:#?}", current_bit_position, new_bit_position);
                         }
-                        Shared::set_phase_160(v.drive_index, v.phase as u8);
+                        Shared::set_phase_160(v.drive_index, v.phase_160 as u8);
                     }
                     MotorOff(v) => {
                         if ! wrapper.has_run {
@@ -326,7 +315,7 @@ impl DiskController {
                     // println!("Stepper motor: {:04X}", address);
                     self.update_stepper(address);
                 }
-                0
+                self.latch
             }
             0xc088 => {
                 // log_emulator(&format!("Turn motor off: {:02X}", self.latch));
@@ -384,7 +373,7 @@ impl DiskController {
                     // WRITE
                     if let Some(ref mut disk) = &mut self.drives[self.drive_index].disk {
                         // println!("Writing {:02X} at clock delta {}", self.write_load, self.clock - self.previous_write_clock);
-                        let phase_160 = (self.drive_phase_80 * 2);
+                        let phase_160 = self.drive_phase_80 * 2;
                         let mut sync_bits: u16 = 0;
                         let delta = self.clock - self.previous_write_clock;
                         if self.previous_write_clock != 0 {
@@ -534,30 +523,37 @@ impl DiskController {
         //     self.current_track = new_track;
         // }
 
+        let mut quarter_direction = 0;
         if self.magnet_states == 0xc || self.magnet_states == 0x6 || self.magnet_states == 0x3 ||
-            self.magnet_states == 9 {
+                self.magnet_states == 9 {
+            quarter_direction = direction;
             direction = 0;
         }
 
         // Update drive_phase too
         self.drive_phase_80 = DiskController::move_in_direction(self.drive_phase_80 as u8, direction) as usize;
+        let mut new_phase_precise = self.drive_phase_80 as f32 + quarter_direction as f32 / 2.0;
+        if new_phase_precise < 0.0 { new_phase_precise = 0.0; }
+        // let current_phase = self.drives[self.drive_index].get_phase_160() / 2;
 
-        let current_phase = self.drives[self.drive_index].get_phase80();
-
-        if false {
-            self.drives[self.drive_index].set_phase80(self.drive_phase_80);
-            Shared::set_phase_160(self.drive_index, (self.drive_phase_80 as u8) * 2);
-        } else {
+        // if false {
+        //     // self.drives[self.drive_index].set_phase80(self.drive_phase_80);
+        //     // Shared::set_phase_160(self.drive_index, (self.drive_phase_80 as u8) * 2);
+        // } else {
+        // if self.drive_phase_80 * 2 != (new_phase_precise * 2.0) as usize {
             // Move the head, but we need to insert a small delay for the first move if it wasn't
             // in motion already. For subsequent ones, the head can move right away (hence delay of 1
             // cycle)
             // Note: ArcticFox doesn't boot with this change, turn it off for now
-            let delay = if self.actions.actions.is_empty() && current_phase != self.drive_phase_80 { 30_000 } else { 1 };
-            self.actions.add_action(10_000, UpdatePhase(UpdatePhaseAction {
+            // let delay = if self.actions.actions.is_empty() && current_phase != self.drive_phase_80 { 30_000 } else { 1 };
+            // if self.drive_phase_80 * 2 != (new_phase_precise * 2.0) as usize {
+            //     println!("Phase drive: {} precise: {}", self.drive_phase_80 * 2, new_phase_precise * 2.0);
+            // }
+            self.actions.add_action(1, UpdatePhase(UpdatePhaseAction {
                 drive_index: self.drive_index,
-                phase: self.drive_phase_80,
+                phase_160: (new_phase_precise * 2.0) as usize, // self.drive_phase_80 * 2,
             }));
-        }
+        // }
 
         #[cfg(feature = "log_disk")]
         log::info!("@@ direction={} phase={} magnetStates={}", direction, self.drive_phase_80, self.magnet_states);
@@ -585,7 +581,7 @@ impl DiskController {
     fn next_bit(&mut self) -> u8 {
         // log::info!("Getting next bit from disk {}", self.disk_index);
         self.drives[self.drive_index].disk.clone()
-            .map_or(0, |mut d| d.next_bit(self.drives[self.drive_index].get_phase80() * 2))
+            .map_or(0, |mut d| d.next_bit(self.drives[self.drive_index].get_phase_160()))
     }
 
     // fn current_bit_index(&self) -> usize {

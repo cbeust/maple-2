@@ -29,7 +29,7 @@ impl /* <T: Clone + 'static> */ Actions {
 pub struct UpdatePhaseAction {
     /// 0 or 1
     pub drive_index: usize,
-    pub phase: usize,
+    pub phase_160: usize,
 }
 
 pub struct MotorOffAction {

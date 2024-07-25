@@ -36,6 +36,7 @@ pub struct Config {
     pub watched_files: Vec<WatchedFileMsg>,
     pub is_65c02: bool,
     pub emulator_speed_hz: u64,
+    pub asynchronous_logging: bool,
 }
 
 impl Config {
@@ -60,6 +61,7 @@ impl Config {
             },
             is_65c02: self.is_65c02,
             emulator_speed_hz: self.emulator_speed_hz,
+            asynchronous_logging: true,
         }
     }
 }
@@ -81,6 +83,7 @@ impl Default for Config {
             watched_files: Vec::new(),
             is_65c02: false,
             emulator_speed_hz: DEFAULT_EMULATOR_SPEED_HZ,
+            asynchronous_logging: false,
         }
     }
 }

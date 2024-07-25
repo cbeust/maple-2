@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{Read};
-use crate::constants::ALL_DISKS;
 use crate::disk::bit_stream::{BitStream, BitStreams};
 use crate::disk::disk::PDisk;
 use crate::disk::disk_controller::{MAX_PHASE};
@@ -563,87 +562,3 @@ impl Woz {
 
 }
 
-pub fn _test_wozv1_2() {
-    let mut file = File::open(ALL_DISKS[22].path()).unwrap();
-    let mut buffer: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buffer).unwrap();
-    let woz = Woz::new_with_file(&ALL_DISKS[22].path(), false).unwrap();
-    // Offsets of the tracks in the file, incremented by 1a00 for each track
-
-    for index in 0..100 {
-        let a = woz.bit_streams.bit_streams[4].next_byte(index * 8);
-        let expected = buffer[index + 0x1b00];
-        assert_eq!(a, expected, "Index {} expected {:02X} but got {:02X}", index, expected, a);
-        println!("Success {:02X} == {:02X}", a, expected);
-    }
-}
-
-pub fn _test_wozv1_1() {
-    let mut file = File::open(ALL_DISKS[22].path()).unwrap();
-    let mut buffer: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buffer).unwrap();
-    let mut expected: HashMap<usize, [u8; 3]> = HashMap::new();
-    expected.insert(0, [0xFF, 0x7F, 0xBF]); // 100
-    expected.insert(3, [0xBF, 0x7E, 0xED]); // 1b00
-    expected.insert(7, [0, 0, 0]); // 3500
-    expected.insert(11, [0xB7, 0xF7, 0xBF]);  // 4f00
-    expected.insert(16, [0xdf, 0x7f, 0x7e]);  // 6900
-    // expected.insert(19, []);  // 8300
-    // 9D00 Parsing track v1, phase: 23 tmap: 6
-    // B700 Parsing track v1, phase: 27 tmap: 7
-    // D100 Parsing track v1, phase: 31 tmap: 8
-    // EB00 Parsing track v1, phase: 36 tmap: 9
-    // 10500 Parsing track v1, phase: 39 tmap: 10
-    // 11F00 Parsing track v1, phase: 43 tmap: 11
-    // 13900 Parsing track v1, phase: 47 tmap: 12
-    // 15300 Parsing track v1, phase: 51 tmap: 13
-    // 16D00 Parsing track v1, phase: 55 tmap: 14
-    // 18700 Parsing track v1, phase: 59 tmap: 15
-
-    let woz = Woz::new_with_file(&ALL_DISKS[22].path(), false);
-    match woz {
-        Ok(woz) => {
-            let bs = woz.bit_streams();
-            let s = bs.get_stream(0);
-            let mut i = 0;
-            let mut line: Vec<u8> = Vec::new();
-            let mut ln = 0;
-            while i < s.len() - 30 {
-                let (size, nibble) = s.next_nibble(i);
-                i += size;
-                line.push(nibble);
-                if line.len() == 16 {
-                    print!("{:04X}: ", ln);
-                    ln += 16;
-                    for b in &line {
-                        print!("{:02X} ", b);
-                    }
-                    println!();
-                    line.clear();
-                }
-                if nibble == 0xdb || nibble == 0xab || nibble == 0xbf {
-                    // println!("Nibble: {:02X} (size: {size})", nibble);
-                }
-            }
-            for phase in 0..MAX_PHASE {
-                match expected.get(&phase) {
-                    None => {}
-                    Some(e) => {
-                        let bs = woz.bit_streams();
-                        let s = bs.get_stream(phase);
-                        assert_eq!(s.next_byte(0), e[0]);
-                        assert_eq!(s.next_byte(8), e[1]);
-                        assert_eq!(s.next_byte(16), e[2]);
-                        println!("Phase {phase} passed the test");
-                        // println!("Phase {phase}: {:02X} {:02X} {:02X}",
-                        //     *stream.get(0).unwrap(), stream.get(1).unwrap(), stream.get(1).unwrap()
-                        // )
-                    }
-                }
-            }
-        }
-        Err(_) => {
-            assert!(false, "Couldn't read file");
-        }
-    }
-}

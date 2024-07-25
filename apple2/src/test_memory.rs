@@ -2,6 +2,7 @@ use cpu::memory::Memory;
 use crate::memory::*;
 use crate::memory_constants::*;
 use crate::{clear_soft_switch, set_soft_switch};
+use crate::roms::RomType;
 
 // #[test]
 pub fn test_set_and_reset_switches() {
@@ -198,7 +199,7 @@ pub fn test_aux_mem() {
     fn create_mem() -> Apple2Memory {
         // Initialize aux to $3 and main to $1
         let mut m = Apple2Memory::new([None, None], [None, None], None);
-        m.load_roms();
+        m.load_roms(RomType::Apple2Enhanced);
         m
     }
 

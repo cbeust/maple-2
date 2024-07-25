@@ -61,6 +61,9 @@ As of this writing, Maple-2 boots the following protected `woz` disks:
   - First Math Adventures - Understanding Word Problems
 - Bit timing
   - Border Zone
+- Spiradisc and quarter tracks
+  - Frogger
+  - Craze Maze Construction Set
 - Ultimate protection
   - Prince of Persia (E7 + RWTS18)
 

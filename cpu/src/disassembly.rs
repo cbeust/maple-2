@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use crate::cpu::StatusFlags;
 use crate::operand::Operand;
 
 /// Representation of static disassembly
@@ -76,7 +77,7 @@ impl RunDisassemblyLine {
         result.push(format!("P={:02X}", self.p));
         result.push(format!("S={:02X}", self.s));
 
-        result.join(",")
+        result.join("_")
     }
 
     fn format_resolved(&self) -> String {
@@ -96,6 +97,18 @@ impl RunDisassemblyLine {
             }
         };
         format!("{s:>12}")
+    }
+
+    /// Format:
+    /// 24F550F4 9B 00 FF 01F8 N.RB.I.C  B7B0:C9 9B     CMP #$9B
+    pub fn to_log(&self) -> String { 
+        let line = self.disassembly_line.to_asm();
+        let flags = StatusFlags::new_with(self.p);
+        let result = format!("{:08} {:02X} {:02X} {:02X} {:04X} {flags} {:<10} | {}",
+            self.total_cycles, self.a, self.x, self.y, 0x100 + self.s as u16, line,
+            self.format_resolved()
+        );
+        result
     }
 
     pub fn to_asm(&self) -> String {

@@ -107,13 +107,13 @@ impl Display for StatusFlags {
             if v { n } else { DOT }
         }
 
-        write!(f, "P={:02X} {{{}{}{}{}{}{}{}{}}}", self.value(),
+        write!(f, "{}{}{}{}{}{}{}{}",
                s("N", self.n()),
                s("V", self.v()),
                s("R", false), // it's always true but don't bother displaying it
                s("B", self.b()),
                s("D", self.d()),
-               s("I", self.i()),
+               s("I", true), // self.i()),
                s("Z", self.z()),
                s("C", self.c()))
     }
@@ -310,6 +310,13 @@ impl <T: Memory> Cpu<T> {
         let mut resolved_address: Option<u16> = None;
         let mut resolved_value: Option<u8> = None;
         let mut resolved_read = true;
+
+        // Save the registers for logging
+        let a = self.a;
+        let x = self.x;
+        let y = self.y;
+        let p = self.p.value();
+        let s = self.s;
 
         // if OPCODES_65C02.contains(&opcode) {
         //     println!("65C02 opcode detected at PC {:04X}:{:02X}", pc, opcode);
@@ -756,14 +763,14 @@ impl <T: Memory> Cpu<T> {
             if self.debug_line_count > 0 {
                 self.debug_line_count -= 1;
             }
-            if true {
-                // Asynchronous logging
+            
+            if config.asynchronous_logging {
                 if let Some(sender) = &self.logging_sender {
                     let byte1 = self.memory.get(pc.wrapping_add(1));
                     let byte2 = self.memory.get(pc.wrapping_add(2));
                     sender.send(Log(LogMsg::new(self.cycles, pc, operand.clone(), byte1, byte2,
                         resolved_address, resolved_value, resolved_read,
-                        self.a, self.x, self.y, self.p.value(), self.s)));
+                        a, x, y, p, s)));
                 }
             } else {
                 // let disassembly_line = self.memory.disassemble(&self.operands, pc);
@@ -771,8 +778,8 @@ impl <T: Memory> Cpu<T> {
                     &operand, self.memory.get(pc.wrapping_add(1)), self.memory.get(pc.wrapping_add(2)));
                 let d = RunDisassemblyLine::new(self.cycles, disassembly_line,
                     resolved_address, resolved_value, resolved_read, cycles,
-                    self.a, self.x, self.y, self.p.value(), self.s);
-                let stack = self.format_stack();
+                    a, x, y, p, s);
+                // let stack = self.format_stack();
                 // println!("{} {} {}", d.to_asm(), self.p, stack);
                 // println!("{}", d.to_csv());
                 if false {
@@ -780,14 +787,14 @@ impl <T: Memory> Cpu<T> {
                         if config.csv {
                             log_file(d.to_csv())
                         } else {
-                            log_file(format!("{} {} {}", d.to_asm(), self.p, stack));
+                            log_file(format!("{}", d.to_asm()));
                         }
                     }
                 } else {
                     if config.trace_to_file && config.csv {
                         log::info!("{}", d.to_csv());
                     } else {
-                        log::info!("{} {} {}", d.to_asm(), self.p, stack);
+                        log::info!("{}", d.to_log());
                     }
                 }
             }
