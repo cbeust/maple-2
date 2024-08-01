@@ -1,8 +1,5 @@
 use std::fs::File;
 use std::io::prelude::*;
-use std::ops::DerefMut;
-use std::sync::{RwLock};
-use once_cell::sync::Lazy;
 use cpu::config::WatchedFileMsg;
 use cpu::cpu::{RunStatus, StatusFlags};
 use cpu::disassembly::Disassemble;

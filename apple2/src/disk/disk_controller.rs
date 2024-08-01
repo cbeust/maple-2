@@ -50,9 +50,6 @@ pub(crate) struct DiskController {
     magnet_states: u8,
     // Current track * 2 (range: 0-79)
     drive_phase_80: usize,
-    // Current track * 2 (range: 0-79) (the drive_phase will eventually become equal to
-    // the current phase
-    current_phase_80: u8,
 
     sender: Option<Sender<ToUi>>,
 
@@ -491,6 +488,7 @@ impl DiskController {
             #[cfg(feature = "log_disk")]
             log::info!("@@ magnetStates={}", self.magnet_states);
         }
+        self.magnet_states &= 0xf;
 
         // check for any stepping effect from a magnet
         // - move only when the magnet opposite the cog is off
@@ -515,8 +513,6 @@ impl DiskController {
             }
         }
 
-        // Add direction to current_phase
-        self.current_phase_80 = DiskController::move_in_direction(self.current_phase_80, direction);
         // Set the track to drive_phase / 2
         // let new_track = min(79, self.drive_phase >> 1); // (round half tracks down)
         // if new_track != self.current_track {

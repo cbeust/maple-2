@@ -316,12 +316,12 @@ impl BitStreams {
 
     pub fn get_stream(&self, phase: usize) -> &BitStream {
         assert!((0..MAX_PHASE).contains(&(phase)));
-        let t = phase; // self.tmap[phase];
+        let t = phase; // self.tmap[phase] as usize;
         if t != 0xff {
             if self.bit_streams.len() == 0 {
                 println!("BUG ZERO SIZE STREAM");
             }
-            &self.bit_streams[t as usize]
+            &self.bit_streams[t]
         } else {
             &self.random
         }

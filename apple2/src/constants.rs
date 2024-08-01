@@ -74,10 +74,9 @@ lazy_static! {
         "Stargate".to_string(), // I/O error
         "DOS 3.2".to_string(),
         "Akalabeth".to_string(),  // 3.2?
-        "Ankh".to_string(),
         "Batman".to_string(),
         "Algernon".to_string(),  // broken if q6 and q7 are tested in lss::step()
-        "Micro invaders".to_string(),
+        "Micro invaders".to_string(), // 13 sectors (boot format = 2)
         "F-15".to_string(), // F-15 Strike Eagle
         "Drol".to_string(),
         "Bug Attack".to_string(),

@@ -1,7 +1,8 @@
 use std::fmt::{Display, Formatter};
-use std::fs::read_to_string;
-use std::num::ParseIntError;
-use std::thread;
+use std::fs::{File, read_to_string};
+use std::io::{BufRead, BufReader,};
+use std::{io};
+use crate::csv::{Csv, Ignore};
 
 #[derive(PartialEq, Eq)]
 struct Line {
@@ -52,31 +53,87 @@ impl Display for Line {
 
 const MAX: usize = 10_000_000;
 
-pub fn analyze_logs() {
-    let (lines_rust, lines_kotlin) = thread::scope(|s| {
-        let file_rust = "d:\\t\\trace.csv";
-        let file_kotlin = "d:\\t\\trace-kotlin.csv";
-        let lines_rust = thread::spawn(|| read_log_csv(file_rust, MAX));
-        let lines_kotlin = thread::spawn(|| read_log_csv(file_kotlin, MAX));
+pub fn analyze_logs() -> io::Result<()> {
+    let file_me = "c:\\t\\trace-temp.txt";
+    let file_other = "d:\\Apple Disks\\Trace-temp.txt";
+    // let lines_other = read_log(file_other, MAX);
 
-        (lines_rust.join().unwrap(), lines_kotlin.join().unwrap())
-    });
+    let mut lines_me = BufReader::new(File::open(file_me)?).lines();
+    let mut lines_other = BufReader::new(File::open(file_other)?).lines();
 
-    for i in 0_usize..MAX {
-        if i >= lines_kotlin.len() {
-            println!("Reached the end of trace for Kotlin: {}", i);
-            break;
-        } else if i >= lines_rust.len() {
-            println!("Reached the end of trace for Rust: {}", i);
-            break;
-        } else if ! lines_kotlin[i].is_equal(&lines_rust[i]) {
-            println!("Line {} differs:", i);
-            println!("Kotlin: {}", lines_kotlin[i]);
-            println!("Rust  : {}", lines_rust[i]);
-            break;
+    let mut stop = false;
+    let mut line_count = 0;
+    let mut ignore_a = false;
+    let mut ignore_x = false;
+    let mut ignore_y = false;
+    while !stop {
+        let (lines_skipped_me, csv_me) = Csv::parse(&mut lines_me);
+        let (lines_skipped_other, csv_other) = Csv::parse(&mut lines_other);
+        if (line_count % 1000) == 0 {
+            println!("Line: {line_count}");
         }
+        match (csv_me, csv_other) {
+            (Some(c1), Some(c2)) => {
+                if ! c1.is_equal(&c2, ignore_a, ignore_x, ignore_y) {
+                    println!("Differ at line {} / {}",
+                        line_count + lines_skipped_me, line_count + lines_skipped_other);
+                    println!("Me:      {}", c1.full_line);
+                    println!("Other:   {}", c2.full_line);
+
+                    stop = true;
+                }
+                match c1.calculate_ignore() {
+                    Ignore::DoIgnore => { ignore_a = true; }
+                    Ignore::DontIgnore => { ignore_a = false;}
+                    Ignore::DontChange => {}
+                }
+                // println!("Current ignore: A:{ignore_a}");
+            }
+            (None, Some(_)) => {
+                println!("My file ran out of lines");
+                stop = true;
+            }
+            (Some(_), None) => {
+                println!("Other file ran out of lines");
+                stop = true;
+            }
+            _ => {
+                println!("Both files are done");
+                stop = true;
+            }
+        }
+        line_count += 1;
+        // match (lines_me.next(), lines_other.next()) {
+        //     (Ok(l1), Ok(l2)) => {}
+        //     _ => {
+        //         stop = true;
+        //     }
+        // }
     }
+    Ok(())
 }
+
+    // let (lines_me, lines_other) = thread::scope(|s| {
+    //     let lines_me = thread::spawn(|| read_log(file_me, MAX));
+    //     let lines_other = thread::spawn(|| read_log(file_other, MAX));
+    //
+    //     (lines_me.join().unwrap(), lines_other.join().unwrap())
+    // });
+    //
+    // for i in 0_usize..MAX {
+    //     if i >= lines_other.len() {
+    //         println!("Reached the end of trace for other: {}", i);
+    //         break;
+    //     } else if i >= lines_me.len() {
+    //         println!("Reached the end of trace for me: {}", i);
+    //         break;
+    //     } else if ! lines_other[i].is_equal(&lines_me[i]) {
+    //         println!("Line {} differs:", i);
+    //         println!("Kotlin: {}", lines_other[i]);
+    //         println!("Rust  : {}", lines_me[i]);
+    //         break;
+    //     }
+    // }
 
 /// Parse "a=b c=d e=f"
 fn parse_lines_with_variables(line: &str) -> Vec<(&str, &str)> {
@@ -96,86 +153,174 @@ fn parse_lines_with_variables(line: &str) -> Vec<(&str, &str)> {
     result
 }
 
-#[derive(Default)]
-struct Csv {
-    line_number: u128,
-    cycles: String,
-    pc: String,
-    line: String,
-    resolved_address: Option<String>,
-    resolved_value: Option<String>,
-    a: String,
-    x: String,
-    y: String,
-    p: String,
-    s: String,
-}
+// /// Format:
+// /// 04187E08 01 60 00 01FC ..RB.I.C  0801:86 0A     STX $0A
+// pub fn read_log_applewin(filename: &str, _max: usize) -> Vec<Csv> {
+//     let mut result = Vec::new();
+//
+//     let all_lines = read_to_string(filename).unwrap();
+//     let mut iter = all_lines.lines().into_iter();
+//     let mut line_number = 0_u128;
+//     let mut stop = false;
+//     let mut pc = "XXXX".to_string();
+//     let mut first = true;
+//
+//     while ! stop {
+//         let line = if let Some(l) = iter.next() {
+//             l
+//         } else {
+//             stop = true;
+//             continue;
+//         };
+//
+//         let mut it = line.split(' ').into_iter();
+//         let cycles = it.next().unwrap();
+//         let a = format!("A={}", it.next().unwrap());
+//         let x = format!("X={}", it.next().unwrap());
+//         let y = format!("Y={}", it.next().unwrap());
+//         let _ = it.next().unwrap();  // skip stack, starts at $1FC for some reason
+//         // Format: ..RB.I.C
+//         let flags_string = it.next().unwrap();
+//         let mut p = 0;
+//         for c in flags_string.chars() {
+//             p <<= 1;
+//             if c != 'I' && c != '.' { p |= 1 };
+//         }
+//         let p = format!("P={p:02X}");
+//
+//         // AppleWin defines the registers for the previous PC, so add the entry now
+//         // and save the PC for the next iteration
+//         if ! first {
+//             result.push( Csv {
+//                 full_line: "blah".to_string(),
+//                 line_number,
+//                 cycles: "".to_string(),
+//                 pc,
+//                 ops: "".to_string(),
+//                 resolved_address: None,
+//                 resolved_value: None,
+//                 a,
+//                 x,
+//                 y,
+//                 p,
+//                 s: "".to_string(),
+//             });
+//         }
+//         first = false;
+//
+//         // Read PC
+//         let mut pc_opcode = it.next().unwrap();
+//         pc_opcode = it.next().unwrap();
+//         pc = pc_opcode.split(':').next().unwrap().to_string();
+//         // println!("Flags: {} becomes {p}", flags_string);
+//         // println!("Read A:{a} PC_OPCODE:{pc_opcode} PC:{pc}");
+//         // println!("");
+//         line_number += 1;
+//     }
+//
+//     result
+// }
 
-impl Csv {
-    fn is_equal(&self, other: &Csv) -> bool {
-        let result = self.pc == other.pc && self.line == other.line
-            && self.resolved_address == other.resolved_address
-            && self.resolved_value == other.resolved_value
-            && self.a == other.a && self.x == other.x && self.y == other.y
-            && self.p == other.p && self.s == other.s;
-        result
-    }
-}
 
-impl Display for Csv {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let ra = match (&self.resolved_address, &self.resolved_value) {
-            (Some(a), Some(v)) => { format!("{}:{}", a, v) }
-            (Some(a), None) => { format!("   {}", a) }
-            (None, Some(v)) => { format!("     {}", v) }
-            _ => { "       ".to_string() }
-        };
-        f.write_str(&format!("{}: {}| {} {ra} {} {} {} {} {} {}",
-            self.line_number, self.cycles, self.line, ra, self.a, self.x, self.y, self.p, self.s)).unwrap();
-        Ok(())
-    }
-}
+// // 02248039 D0 60 07 01FF ...B.I.C B700: 8E E9 B7   STX $B7E9     |  A$B7E9:v$60
+// fn read_log(filename: &str, _max: usize) -> Vec<Csv> {
+//     println!("Reading {filename}");
+//     let mut result: Vec<Csv> = Vec::new();
+//     let mut stop = false;
+//     let all_lines = read_to_string(filename).unwrap();
+//     let mut iter = all_lines.lines().into_iter();
+//     let mut line_number = 0_u128;
+//
+//     let mut line_count = 0;
+//     while !stop {
+//         let line = if let Some(l) = iter.next() {
+//             l
+//         } else {
+//             stop = true;
+//             continue;
+//         };
+//
+//         // let line = "11FDB07B 45 4B B6 01DF ..RB.I.C  F8C9:B9 00 FB  LDA $FB00,Y";
+//         //
+//         //
+//         // let re2 = Regex::new("([[:xdigit:]]+) ([[:xdigit:]]{2}) ([[:xdigit:]]{2}) ([[:xdigit:]]{2}) \
+//         //             ([[:xdigit:]]{4}) +([^ ]{8}) +([[:xdigit:]]{4}): +((?:.. )+)")
+//         //     .unwrap();
+//         // let s3 =             "11FDB07B 45 4B B6 01DF ..RB.I.C  F8C9:B9 00 FB  LDA $FB00,Y";
+//         // let m = re2.is_match("11FDB07B 12 34 56 01DF ..RB.I.C  F8C9: 12 34 56  LDA $FB00,Y");
+//         // if m {
+//         //     println!("True");
+//         // } else {
+//         //     println!("False");
+//         // }
+//         //
+//         //
+//         // if ! re.is_match(line) {
+//         //     println!("Not matching:\n{line}");
+//         //     println!("");
+//         // }
+//         for (_, [cycles, a, x, y, stack, flags, pc, op, rest]) in RE.captures_iter(line).map(|c| c.extract()) {
+//             // println!("Cycles: {cycles} A:{a} X:{x} Y:{y} stack:{stack} flags:{flags} pc:{pc} op:{op} rest:{rest}");
+//
+//             if line_count != 0 && (line_count % 100_000) == 0 {
+//                 println!("Line {line_count}");
+//             }
+//             let mut csv = Csv::default();
+//             csv.cycles = cycles.into();
+//             csv.pc = pc.into();
+//             csv.a = a.into();
+//             csv.x = x.into();
+//             csv.y = y.into();
+//             csv.p = flags.into();
+//             csv.s = stack.into();
+//             csv.ops = op.trim().to_string();
+//             result.push(csv);
+//             line_count += 1;
+//         }
+//     }
+//     result
+// }
 
-fn read_log_csv(filename: &str, _max: usize) -> Vec<Csv> {
-    println!("Reading {filename}");
-    let mut result: Vec<Csv> = Vec::new();
-    let mut stop = false;
-    let all_lines = read_to_string(filename).unwrap();
-    let mut iter = all_lines.lines().into_iter();
-    let mut line_number = 0_u128;
-
-    while !stop {
-        let line = if let Some(l) = iter.next() {
-            l
-        } else {
-            stop = true;
-            continue;
-        };
-
-        if let Some(c) = line.chars().next() {
-            if c.is_ascii_digit() {
-                let mut csv = Csv::default();
-                let mut elements = line.split(",");
-                csv.line_number = line_number;
-                // skip cycles
-                let _ = elements.next().unwrap();
-                csv.cycles = "0".to_string(); // elements.next().unwrap().to_string();
-                csv.pc = elements.next().unwrap().to_string();
-                csv.line = elements.next().unwrap().to_string();
-                csv.resolved_address = elements.next().map(|s| s.to_string());
-                csv.resolved_value = elements.next().map(|s| s.to_string());
-                csv.a = elements.next().unwrap().to_string();
-                csv.x = elements.next().unwrap().to_string();
-                csv.y = elements.next().unwrap().to_string();
-                csv.p = elements.next().unwrap().to_string();
-                csv.s = elements.next().unwrap().to_string();
-                result.push(csv);
-            }
-            line_number += 1;
-        }
-    }
-    result
-}
+// fn read_log_csv(filename: &str, _max: usize) -> Vec<Csv> {
+//     println!("Reading {filename}");
+//     let mut result: Vec<Csv> = Vec::new();
+//     let mut stop = false;
+//     let all_lines = read_to_string(filename).unwrap();
+//     let mut iter = all_lines.lines().into_iter();
+//     let mut line_number = 0_u128;
+//
+//     while !stop {
+//         let line = if let Some(l) = iter.next() {
+//             l
+//         } else {
+//             stop = true;
+//             continue;
+//         };
+//
+//         if let Some(c) = line.chars().next() {
+//             if c.is_ascii_digit() {
+//                 let mut csv = Csv::default();
+//                 let mut elements = line.split('_');
+//                 csv.line_number = line_number;
+//                 // skip cycles
+//                 let _ = elements.next().unwrap();
+//                 csv.cycles = "0".to_string(); // elements.next().unwrap().to_string();
+//                 csv.pc = elements.next().unwrap().to_string();
+//                 csv.ops = elements.next().unwrap().trim().to_string();
+//                 csv.resolved_address = elements.next().map(|s| s.to_string());
+//                 csv.resolved_value = elements.next().map(|s| s.to_string());
+//                 csv.a = elements.next().unwrap().to_string();
+//                 csv.x = elements.next().unwrap().to_string();
+//                 csv.y = elements.next().unwrap().to_string();
+//                 csv.p = elements.next().unwrap().to_string();
+//                 csv.s = elements.next().unwrap().to_string();
+//                 result.push(csv);
+//             }
+//             line_number += 1;
+//         }
+//     }
+//     result
+// }
 
 fn read_kotlin(filename: &str, max: usize) -> Vec<Line> {
     println!("Reading {filename}");

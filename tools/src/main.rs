@@ -1,10 +1,10 @@
-use crate::compress::compress;
 use crate::log_analyzer::analyze_logs;
 
-mod log_analyzer;
+pub mod log_analyzer;
 mod compress;
+mod csv;
 
 fn main() {
-    compress();
-    // analyze_logs();
+    // compress();
+    analyze_logs();
 }

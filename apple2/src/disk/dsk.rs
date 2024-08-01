@@ -53,7 +53,7 @@ impl Dsk {
     /// result[4..7] = buffer for track 1
     /// ...
     fn bytes_to_bit_streams(filename: &str, bytes: &[u8]) -> Result<Dsk, String> {
-        let mut bit_streams: Vec<BitStream> = Vec::new();
+        let mut tracks: Vec<BitStream> = Vec::new();
         let mut track = 0;
 
         // Fill the tracks first: 35 valid tracks, the last 5 are random bits
@@ -62,7 +62,7 @@ impl Dsk {
             let end = /* min(bytes.len(), */ start + TRACK_SIZE_BYTES;
             if start < bytes.len() && end <= bytes.len() {
                 let slice = &bytes[start..end];
-                bit_streams.push(BitStream::new(Dsk::encode_track(slice, track as u8)));
+                tracks.push(BitStream::new(Dsk::encode_track(slice, track as u8)));
             }
             track += 1;
         };
@@ -79,6 +79,18 @@ impl Dsk {
             tmap[phase] = track;
             if phase + 1 < MAX_PHASE - 1 { tmap[phase + 1] = track; }
             track += 1;
+        }
+
+        // Now fill the bit_streams according to the TMAP
+        let mut bit_streams: Vec<BitStream> = Vec::new();
+        for phase in 0..tmap.len() {
+            let t = tmap[phase];
+            let bs = if t != 0xff {
+                tracks[t as usize].clone()
+            } else {
+                BitStream::random()
+            };
+            bit_streams.push(bs);
         }
 
         let mut dsk = Dsk {

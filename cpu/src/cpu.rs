@@ -110,7 +110,7 @@ impl Display for StatusFlags {
         write!(f, "{}{}{}{}{}{}{}{}",
                s("N", self.n()),
                s("V", self.v()),
-               s("R", false), // it's always true but don't bother displaying it
+               s("R", true),
                s("B", self.b()),
                s("D", self.d()),
                s("I", true), // self.i()),

@@ -154,6 +154,30 @@ impl Apple2Memory {
     }
 
     pub fn load_roms(&mut self, rom_type: RomType) {
+        // Make Bug Attack work
+        for i in 0x000..0xC000 {
+            self.memories[0][i] = ((((i+2) >> 1) & 1)*0xFF) as u8;
+            self.memories[1][i] = ((((i+2) >> 1) & 1)*0xFF) as u8;
+        }
+
+        for i in 0x400..0xC00 {
+            self.memories[0][i] = (i & 0xF) as u8;
+            self.memories[1][i] = (i & 0xF) as u8;
+        }
+
+        self.memories[0][0x3F3] = 0xFE;
+        self.memories[1][0x3F3] = 0xFE;
+        self.memories[0][0x3F4] = 0xFF;
+        self.memories[1][0x3F4] = 0xFF;
+
+        self.memories[0][0x4e] = 0x7f;
+
+        // Make Ankh work
+        for i in 0..8 {
+            let address = 0xc000 + i * 0x100;
+            self.memories[1][address] = 1;
+        }
+
         let rom_info = Roms::default().get_rom(rom_type);
         self.load_bytes(&rom_info.bytes, rom_info.offset, 0, 0, true /* main mem */);
 
@@ -204,21 +228,26 @@ impl Apple2Memory {
     /// Handle both get and set in the same function since we sometimes do the same thing
     /// for both accesses. Return `None` if we're setting a value, `Some(value)` if it's
     /// a memory get.
-    fn get_or_set(&mut self, address: u16, value: u8, get: bool) -> Option<u8> {
+    fn get_or_set(&mut self, address: u16, value: u8, read: bool) -> Option<u8> {
         let mut result: Option<u8> = None;
-        let set = ! get;
+        let write = !read;
+
+        // Crack for Ankh
+        // if address == 0xb612 && get {
+        //     return Some(0x14);
+        // }
 
         // PRE-WRITE is set by odd read access in the $C08X range.
         // It is reset by even read access or any write access in the $C08X range.
         if (0xc080..=0xc08f).contains(&address) {
             let odd = (address & 1) == 1;
-            if odd && get {
+            if odd && read {
                 if self.bank_write_count < 3 {
                     self.bank_write_count += 1;
                 }
                 #[cfg(feature = "log_memory")]
                 self.log_mem(address, &format!("Incremented PREWRITE to {}", self.bank_write_count));
-            } else if !odd || ! get {
+            } else if !odd || !read {
                 self.bank_write_count = 0;
                 #[cfg(feature = "log_memory")]
                 self.log_mem(address, "Reset PREWRITE count to 0");
@@ -242,7 +271,7 @@ impl Apple2Memory {
         match address {
             0..=0x1ff => {
                 let index: usize = if is_set!(self, ALT_ZP_STATUS) { 1 } else { 0 };
-                if get {
+                if read {
                     result = Some(self.memories[index][address as usize]);
                 } else {
                     self.memories[index][address as usize] = value;
@@ -268,12 +297,12 @@ impl Apple2Memory {
                 let index = if is_text {
                     if is_eighty_set {
                         if is_page2 { AUX } else { MAIN }
-                    } else if (get && is_read_aux) || (!get && is_write_aux) { AUX } else { MAIN }
+                    } else if (read && is_read_aux) || (!read && is_write_aux) { AUX } else { MAIN }
                 } else if is_eighty_set && is_hires_set && (is_text || is_graphics) {
                     if is_page2 { AUX } else { MAIN }
-                } else if (!get && is_write_aux) || (get && is_read_aux) { AUX } else { MAIN };
+                } else if (!read && is_write_aux) || (read && is_read_aux) { AUX } else { MAIN };
 
-                if get {
+                if read {
                     result = Some(self.memories[index][address as usize]);
                 } else {
                     self.memories[index][address as usize] = value;
@@ -370,29 +399,29 @@ impl Apple2Memory {
                 result = Some(0)
             }
 
-            EIGHTY_STORE_ON if set => { set_soft_switch!(self, EIGHTY_STORE_STATUS); }
-            READ_AUX_MEM_OFF if set => { clear_soft_switch!(self, READ_AUX_MEM_STATUS); }
-            READ_AUX_MEM_ON if set => { set_soft_switch!(self, READ_AUX_MEM_STATUS); }
-            WRITE_AUX_MEM_OFF if set => { clear_soft_switch!(self, WRITE_AUX_MEM_STATUS); }
-            WRITE_AUX_MEM_ON if set => { set_soft_switch!(self, WRITE_AUX_MEM_STATUS); }
-            INTERNAL_CX_OFF if set => { clear_soft_switch!(self, INTERNAL_CX_STATUS); }
-            INTERNAL_CX_ON if set => { set_soft_switch!(self, INTERNAL_CX_STATUS); }
-            ALT_ZP_OFF if set => {
+            EIGHTY_STORE_ON if write => { set_soft_switch!(self, EIGHTY_STORE_STATUS); }
+            READ_AUX_MEM_OFF if write => { clear_soft_switch!(self, READ_AUX_MEM_STATUS); }
+            READ_AUX_MEM_ON if write => { set_soft_switch!(self, READ_AUX_MEM_STATUS); }
+            WRITE_AUX_MEM_OFF if write => { clear_soft_switch!(self, WRITE_AUX_MEM_STATUS); }
+            WRITE_AUX_MEM_ON if write => { set_soft_switch!(self, WRITE_AUX_MEM_STATUS); }
+            INTERNAL_CX_OFF if write => { clear_soft_switch!(self, INTERNAL_CX_STATUS); }
+            INTERNAL_CX_ON if write => { set_soft_switch!(self, INTERNAL_CX_STATUS); }
+            ALT_ZP_OFF if write => {
                 clear_soft_switch!(self, ALT_ZP_STATUS);
                 #[cfg(feature = "log_memory")]
                 self.log_mem(address, "ALT_ZERO_PAGE is off");
             }
-            ALT_ZP_ON if set => {
+            ALT_ZP_ON if write => {
                 set_soft_switch!(self, ALT_ZP_STATUS);
                 #[cfg(feature = "log_memory")]
                 self.log_mem(address, "ALT_ZERO_PAGE is on");
             }
-            SLOT_C3_OFF if set => { clear_soft_switch!(self, SLOT_C3_STATUS); }
-            SLOT_C3_ON if set => { set_soft_switch!(self, SLOT_C3_STATUS); }
-            EIGHTY_COLUMNS_OFF if set => { clear_soft_switch!(self, EIGHTY_COLUMNS_STATUS); }
-            EIGHTY_COLUMNS_ON if set => { set_soft_switch!(self, EIGHTY_COLUMNS_STATUS); }
-            ALT_CHAR_OFF if set => { clear_soft_switch!(self, ALT_CHAR_STATUS); }
-            ALT_CHAR_ON if set => { set_soft_switch!(self, ALT_CHAR_STATUS); }
+            SLOT_C3_OFF if write => { clear_soft_switch!(self, SLOT_C3_STATUS); }
+            SLOT_C3_ON if write => { set_soft_switch!(self, SLOT_C3_STATUS); }
+            EIGHTY_COLUMNS_OFF if write => { clear_soft_switch!(self, EIGHTY_COLUMNS_STATUS); }
+            EIGHTY_COLUMNS_ON if write => { set_soft_switch!(self, EIGHTY_COLUMNS_STATUS); }
+            ALT_CHAR_OFF if write => { clear_soft_switch!(self, ALT_CHAR_STATUS); }
+            ALT_CHAR_ON if write => { set_soft_switch!(self, ALT_CHAR_STATUS); }
             // 0xc010 => if set { self.memories[MAIN][0xc000] &= 0x7f; }
 
             0xc0f8 => {
@@ -442,7 +471,7 @@ impl Apple2Memory {
 
                 let address = address as usize;
                 let value = self.memories[index][address];
-                if get {
+                if read {
                     result = Some(value);
                 } else {
                     // self.memories[index][address] = value;
@@ -452,7 +481,7 @@ impl Apple2Memory {
             0xd000..=0xffff => {
                 let index: usize = if is_set!(self, ALT_ZP_STATUS) { 1 } else { 0 };
                 // let (index, address) = self.memory_index_and_address(address);
-                if get {
+                if read {
                     match self.read_rom {
                         RomReadType::Rom => {
                             result = Some(self.memories[0][address as usize]);
@@ -514,7 +543,7 @@ impl Apple2Memory {
                 }
             }
             0xc000 => {
-                if get {
+                if read {
                     result = Some(self.memories[MAIN][address as usize]);
                 } else {
                     clear_soft_switch!(self, EIGHTY_STORE_STATUS);
@@ -556,7 +585,7 @@ impl Apple2Memory {
                 result = Some(0);
             }
             IOU_DIS_ON => {
-                if get {
+                if read {
                     result = Some(if self.dhg_iou_disabled { 0x80 } else { 0 } );
                 } else {
                     // Disable IOU
@@ -564,7 +593,7 @@ impl Apple2Memory {
                 }
             }
             IOU_DIS_OFF => {
-                if get {
+                if read {
                     // status of double hires
                 } else {
                     // Enable IOU
@@ -573,7 +602,7 @@ impl Apple2Memory {
             }
             _ => {
                 if self.disk_controller.accept(address) {
-                    let value = self.disk_controller.get_or_set(get, address, value, &self.sender);
+                    let value = self.disk_controller.get_or_set(read, address, value, &self.sender);
                     // println!("Returning byte {:04X}: {:02X}", address, result);
                     result = Some(value);
                 }
@@ -581,7 +610,7 @@ impl Apple2Memory {
         }
 
         if result.is_none() {
-            if get {
+            if read {
                 let index = if (0x200..0xc000).contains(&address) {
                     if is_set!(self, READ_AUX_MEM_STATUS) { AUX } else { MAIN }
                 } else { MAIN };
@@ -595,7 +624,7 @@ impl Apple2Memory {
             }
         }
 
-        if result.is_none() && get {
+        if result.is_none() && read {
             panic!("None at PC {:04X} address:{:04X}", *PC.read().unwrap(), address);
         }
         result

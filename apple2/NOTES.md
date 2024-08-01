@@ -375,3 +375,34 @@ redefine keys, play the game, etc...
 
 Interestingly, Maze Craze Construction Set is now booting, it's probably using a weaker version of Spiradisc. Lunar
 Leeper and Frogger are still not booting.
+
+F-15 Strike Eagle
+=================
+
+xot:
+Hardcore Computist #24 talks about F-15 Strike Eagle hiding the RWST in the RAM card. There are multiple versions
+however. Hardcore Computist #35 has a different crack and it also points to issues #28 and #29 regarding other
+versions. (edited)
+
+http://computist.textfiles.com/ISSUE.24/page-19.jpg
+
+stivo:
+```
+loadTrack() woz2   drive:1 tmap track:0 (0.00)
+loadTrack() woz2   drive:1 tmap track:3 (0.75)
+loadTrack() woz2   drive:1 tmap track:7 (1.75)
+loadTrack() woz2   drive:1 tmap track:5 (1.25)
+loadTrack() woz2   drive:1 tmap track:1 (0.25)
+loadTrack() woz2   drive:1 tmap track:3 (0.75)
+loadTrack() woz2   drive:1 tmap track:7 (1.75)
+loadTrack() woz2   drive:1 tmap track:8 (2.00)
+loadTrack() woz2   drive:1 tmap track:11 (2.75)
+loadTrack() woz2   drive:1 tmap track:15 (3.75)
+loadTrack() woz2   drive:1 tmap track:19 (4.75)
+loadTrack() woz2   drive:1 tmap track:23 (5.75)
+loadTrack() woz2   drive:1 tmap track:27 (6.75)
+loadTrack() woz2   drive:1 tmap track:31 (7.75)
+loadTrack() woz2   drive:1 tmap track:35 (8.75)
+loadTrack() woz2   drive:1 tmap track:39 (9.75)
+loadTrack() woz2   drive:1 tmap track:43 (10.75)
+```
