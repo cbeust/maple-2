@@ -15,8 +15,6 @@ minifb = []
 [dependencies]
 cpu = { path = "../cpu" }
 
-eframe = "0.27.2"
-
 float_eq = "1.0.1"
 clap = {  version = "4.4.6", features = ["derive"] }
 crossbeam = "0.8.2"

@@ -48,6 +48,8 @@ pub enum ToUi {
     DiskInserted(usize, Option<DiskInfo>),
     HardDriveInserted(usize, Option<DiskInfo>),
     Exit,
+    /// drive_index, phase_160
+    FirstRead(usize, u8),
 }
 
 #[derive(Default)]

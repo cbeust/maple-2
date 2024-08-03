@@ -8,6 +8,7 @@ pub struct MColor;
 
 impl MColor {
     pub fn black1() -> Color { Color::from_rgb(0.1, 0.1, 0.1) }
+    pub fn black3() -> Color { Color::from_rgb(0.3, 0.3, 0.3) }
 
     pub fn gray0() -> Color { Color::from_rgb(0.4, 0.4, 0.4) }
     pub fn gray1() -> Color { Color::from_rgb(0.6, 0.6, 0.6) }

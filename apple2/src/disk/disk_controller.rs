@@ -11,7 +11,7 @@ use crate::disk::disk_info::DiskInfo;
 use crate::disk::drive::{Drive};
 use crate::messages::ToUi;
 use crate::ui::iced::shared::*;
-use crate::messages::ToUi::{DiskSelected};
+use crate::messages::ToUi::{DiskSelected, FirstRead};
 
 /// Divide by 2 to get the phase, by 4 to get the track
 pub const MAX_PHASE: usize = 160;
@@ -84,6 +84,10 @@ pub(crate) struct DiskController {
     write_dirty: bool,
     /// Next byte to be written
     write_load: u8,
+
+    /// Keep track of the first time we read a phase. Indexed by the disk drive
+    first_time_reading_phase: [u8; 2],
+
 }
 
 impl DiskController {
@@ -189,7 +193,7 @@ impl DiskController {
                         #[cfg(feature = "log_disk")]
                         if self.drives[v.drive_index].get_phase_160() != v.phase_160 {
                             log::info!("@@ updatePhase={}->{}",
-                                self.drives[v.drive_index].get_phase_160(), v.phase_!60);
+                                self.drives[v.drive_index].get_phase_160(), v.phase_160);
                         }
 
                         self.drives[v.drive_index].set_phase_160(v.phase_160);
@@ -351,6 +355,12 @@ impl DiskController {
                 0
             }
             0xc08c => {
+                let drive_index = self.drive_index;
+                let current_phase = Shared::phase_160(drive_index);
+                if self.first_time_reading_phase[drive_index] != current_phase {
+                    send_message!(&self.sender, FirstRead(drive_index, Shared::phase_160(drive_index)));
+                    self.first_time_reading_phase[drive_index] = current_phase;
+                }
                 // Q6L
                 self.q6 = false;
                 if ! self.q7 {
@@ -359,7 +369,7 @@ impl DiskController {
 
                     // Fill the latch
                     if (result & 0x80) > 0 {
-                        self.sector_read.read_byte(self.drive_index, result, &self.sender);
+                        self.sector_read.read_byte(drive_index, result, &self.sender);
                         if NIBBLE_STRATEGY != Bits {
                             self.latch = 0;
                         }
@@ -368,7 +378,7 @@ impl DiskController {
                     result
                 } else {
                     // WRITE
-                    if let Some(ref mut disk) = &mut self.drives[self.drive_index].disk {
+                    if let Some(ref mut disk) = &mut self.drives[drive_index].disk {
                         // println!("Writing {:02X} at clock delta {}", self.write_load, self.clock - self.previous_write_clock);
                         let phase_160 = self.drive_phase_80 * 2;
                         let mut sync_bits: u16 = 0;

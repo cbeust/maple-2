@@ -57,7 +57,7 @@ impl MainWindow {
     -> Self {
         let mut result = Self {
             config_file: config_file.clone(),
-            active_tab: TabId::DisksTab,
+            active_tab: TabId::DiskTab,
             drive_statuses: [ DriveStatus::default(), DriveStatus::default() ],
             draw_commands: vec![],
             last_update: Instant::now(),
@@ -131,7 +131,7 @@ impl Window for MainWindow {
         let tabs: Element<'_, InternalUiMessage> = Tabs::new(InternalUiMessage::TabSelected)
             .push(TabId::DisksTab, self.disks_tab.tab_label(), self.disks_tab.view())
             .push(TabId::NibblesTab, self.nibbles_tab.tab_label(), self.nibbles_tab.view())
-            // .push(TabId::DiskTab, self.disk_tab.tab_label(), self.disk_tab.view())
+            .push(TabId::DiskTab, self.disk_tab.tab_label(), self.disk_tab.view())
             .set_active_tab(&self.active_tab)
             .height(Length::Fill)
             .into();
@@ -216,6 +216,9 @@ impl Window for MainWindow {
                     Shared::set_drive(drive_number, None);
                 }
                 self.config_file.set_drive(is_hard_drive, drive_number, None);
+            }
+            FirstRead(_, _) | ClearDiskGraph => {
+                self.disk_tab.update2(message);
             }
             _ => {
                 println!("Unknown message {message:#?}");

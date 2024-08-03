@@ -1,6 +1,5 @@
 mod memory;
 mod debug;
-mod keyboard;
 mod constants;
 mod apple2_cpu;
 mod messages;
@@ -65,7 +64,6 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
-use eframe::egui::{ViewportBuilder};
 use cpu::cpu::Cpu;
 use cpu::memory::Memory;
 use messages::ToUi;
@@ -194,7 +192,7 @@ fn t() {
     }
 }
 
-fn start(egui: bool) -> eframe::Result<()> {
+fn start(egui: bool) {
     let config_file = ConfigFile::new();
     let mut config = Config {
         emulator_speed_hz: config_file.emulator_speed_hz(),
@@ -366,7 +364,6 @@ fn start(egui: bool) -> eframe::Result<()> {
         _ = main_iced(Some(sender2), receiver, Some(sender_minifb),
             config_file_minifb.clone());
     }
-    Ok(())
 }
 
 struct Apple2 {

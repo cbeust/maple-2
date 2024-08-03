@@ -78,4 +78,8 @@ pub enum InternalUiMessage {
     // bool: is_hard_drive, usize: drive_number
     Eject(bool, usize),
     Exit,
+    // First read from this drive on this phase_160
+    FirstRead(usize, u8),
+    // Disk tab: clear the graph
+    ClearDiskGraph,
 }

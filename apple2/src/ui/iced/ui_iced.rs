@@ -193,6 +193,8 @@ impl EmulatorApp {
                 | ShowDrives
                 | ShowHardDrives
                 | Eject(_, _)
+                | FirstRead(_, _)
+                | ClearDiskGraph
                 =>
             {
                 if let Some(ref mut main_window) = &mut self.main_window {
@@ -300,9 +302,12 @@ impl EmulatorApp {
                     }
                 }
             }
-            _ => {
-                // not handled yet
+            Load | TabClosed(_) | Init(_) | DebuggerPause | EditBreakPoint(_) => {
+                // ignored
             }
+            // _ => {
+            //     // not handled yet
+            // }
         }
 
         // if Shared::breakpoint_was_hit() {
@@ -361,8 +366,12 @@ impl EmulatorApp {
                             ToUi::Exit => {
                                 result = Some(Exit);
                             }
-                            _ => {
-                                // println!("Ignoring mapping message: {m:#?}");
+                            ToUi::Config(_) => {}
+                            ToUi::KeyboardStrobe => {}
+                            ToUi::DriveMotorStatus(_, _) => {}
+                            ToUi::RgbModeUpdate(_) => {}
+                            ToUi::FirstRead(drive, phase_160) => {
+                                result = Some(FirstRead(drive, phase_160));
                             }
                         }
                     }
