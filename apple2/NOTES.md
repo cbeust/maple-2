@@ -16,6 +16,19 @@ https://github.com/badvision/lawless-legends/blob/41d3ccce650a242a2be2182974d384
    advertise the feature because it’s kind of hard to get working properly. You need all the files to have ciderpress
    style names with the A$ offsets in the file names. (edited)
 
+
+## A2Audit
+
+To know which test is being run:
+
+```rust
+if pc == 0x61d9 {
+   println!("Starting a2audit test {:02X}{:02X}", self.memory.get(0x1fd), self.memory.get(0x1fc) - 2);
+}
+```
+
+Data-driven tests start at $61AE.
+
 ## Sound
 
 Brendan:

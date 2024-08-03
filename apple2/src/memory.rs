@@ -1,6 +1,4 @@
 use std::fs;
-use std::fs::File;
-use std::io::Read;
 use crossbeam::channel::Sender;
 pub use cpu::memory::{Memory, DefaultMemory};
 use crate::alog::alog;
@@ -12,7 +10,7 @@ use crate::memory_constants::*;
 use crate::messages::ToUi;
 use crate::messages::ToUi::RgbModeUpdate;
 use crate::roms::{DISK2_ROM, Roms, RomType, SMARTPORT_ROM};
-use crate::{send_message, ui_log};
+use crate::{send_message};
 use crate::smartport::SmartPort;
 use crate::ui::iced::shared::Shared;
 
@@ -77,9 +75,16 @@ pub struct Apple2Memory {
     pub extra_text_memory: [u8; 0x400],
 
     /// Language card banks
-    read_rom: RomReadType,
-    write_rom: RomWriteType,
-    bank_write_count: u8,
+
+    // Language card control
+    // Incremented until it reaches 2, which enables writing to the LC
+    prewrite: u8,
+    // If true, access bank 1, otherwise, bank 2
+    bank1: bool,
+    // If true, LC reads are enabled
+    read_enabled: bool,
+    // If true, LC Writes are enabled
+    write_enabled: bool,
 
     /// Double hires graphics
     dhg_previous_address: u16,
@@ -132,9 +137,12 @@ impl Apple2Memory {
             // memory2: Memory2::new(),
             sender: sender.clone(),
             memories: [[0; DefaultMemory::MEMORY_SIZE as usize]; 2],
-            bank_write_count: 0,
-            read_rom: RomReadType::Rom,
-            write_rom: RomWriteType::Rom,
+
+            prewrite: 0,
+            bank1: true,
+            read_enabled: false,
+            write_enabled: false,
+
             extra_text_memory: [0; 0x400],
             high_ram: [HighRam::default(), HighRam::default()],
             slot_c8_status: false,
@@ -204,24 +212,13 @@ impl Apple2Memory {
         }
     }
 
-    // pub fn load_smartport(&mut self, load: bool) {
-    //     if load {
-    //         self.load_bytes(&SMARTPORT_ROM, 0xc700, 0 /* skip */, 0x100, false /* aux mem */);
-    //     } else {
-    //         self.memories[0][0xc700] = 0;
-    //         self.memories[0][0xc701] = 0;
-    //         self.memories[0][0xc702] = 0;
-    //         self.memories[0][0xc703] = 0;
-    //         self.memories[0][0xc704] = 0;
-    //     }
-    // }
-
     fn log_mem(&self, address: u16, s: &str) {
         log::info!("  {} | {}", s,
-            &format!("{:04X} read_rom:{:?}, write_rom:{:?}, count:{}, alt_zp:{}",
+            &format!("{:04X} read_enabled:{}, write_enabled:{}, bank:{}, prewrite:{}, alt_zp:{}",
                 address,
-                self.read_rom, self.write_rom,
-                self.bank_write_count, is_set!(self, ALT_ZP_STATUS)
+                self.read_enabled, self.write_enabled,
+                if self.bank1 { 1 } else { 2 },
+                self.prewrite, is_set!(self, ALT_ZP_STATUS)
             ))
     }
 
@@ -236,23 +233,6 @@ impl Apple2Memory {
         // if address == 0xb612 && get {
         //     return Some(0x14);
         // }
-
-        // PRE-WRITE is set by odd read access in the $C08X range.
-        // It is reset by even read access or any write access in the $C08X range.
-        if (0xc080..=0xc08f).contains(&address) {
-            let odd = (address & 1) == 1;
-            if odd && read {
-                if self.bank_write_count < 3 {
-                    self.bank_write_count += 1;
-                }
-                #[cfg(feature = "log_memory")]
-                self.log_mem(address, &format!("Incremented PREWRITE to {}", self.bank_write_count));
-            } else if !odd || !read {
-                self.bank_write_count = 0;
-                #[cfg(feature = "log_memory")]
-                self.log_mem(address, "Reset PREWRITE count to 0");
-            }
-        }
 
         // INTC8ROM: Unreadable soft switch (UTAIIe:5-28)
         // . Set:   On access to $C3XX with SLOTC3ROM reset
@@ -324,79 +304,42 @@ impl Apple2Memory {
                     self.vbl = 0x80;
                 }
             }
-            // Both R and W
-            0xc080 | 0xc084 => {
-                #[cfg(feature = "log_memory")]
-                self.log_mem(address, "Read bank 2, no write");
-                self.read_rom = RomReadType::Bank2;
-                self.write_rom = RomWriteType::Rom;
-                result = Some(0)
-            }
-            // Both R and W
-            0xc088 | 0xc08c => {
-                self.read_rom = RomReadType::Bank1;
-                self.write_rom = RomWriteType::Rom;
-                #[cfg(feature = "log_memory")]
-                self.log_mem(address, "Read bank 1, no write");
-                result = Some(0)
-            }
 
-            // Both R and W
-            0xc089 | 0xc08d => {
-                self.read_rom = RomReadType::Rom;
-                #[cfg(feature = "log_memory")]
-                self.log_mem(address, "Read rom");
-                if self.bank_write_count >= 2 {
-                    self.write_rom = RomWriteType::Bank1;
-                    #[cfg(feature = "log_memory")]
-                    self.log_mem(address, "Write bank 2");
+            0xc080..=0xc08f => {
+                // PREWRITE is set by odd read access in the $C08X range.
+                // It is reset by even read access or any write access in the $C08X range.
+                // This code is a close translation of Table 5.5, page 5-24 from
+                // Sather's "Understanding the Apple IIe" (note: IIe, not II+).
+                let odd = (address & 1) == 1;
+                let even = ! odd;
+                if odd && read && self.prewrite < 3 {
+                    self.prewrite += 1;
+                    if self.prewrite >= 2 {
+                        self.write_enabled = true;
+                    }
                 }
-                result = Some(0)
-            }
+                if even {
+                    // Note that this boolean is dissociated from the prewrite count
+                    // https://github.com/AppleWin/AppleWin/issues/395
+                    self.write_enabled = false;
+                }
+                if even || write {
+                    self.prewrite = 0;
+                }
 
-            // Both R and W
-            0xc081 | 0xc085 => {
-                self.read_rom = RomReadType::Rom;
+                // Addresses 0..7 select bank 2, addresses 8-f select bank 1
+                let digit = address & 0xf;
+                self.bank1 = if digit <= 7 { false } else { true };
+
+                // Read is enabled for any access to 0, 4, 8, c, 3, 7, b, f
+                self.read_enabled = if [0, 4, 8, 0xc, 3, 7, 0xb, 0xf].contains(&digit) {
+                    true
+                } else {
+                    false
+                };
+
                 #[cfg(feature = "log_memory")]
-                self.log_mem(address, "Read rom");
-                if self.bank_write_count >= 2 {
-                    self.write_rom = RomWriteType::Bank2;
-                    #[cfg(feature = "log_memory")]
-                    self.log_mem(address, "Write bank 2");
-                }
-                result = Some(0)
-            }
-            // Both R and W
-            0xc082 | 0xc086 | 0xc08a | 0xc08e => {
-                self.read_rom = RomReadType::Rom;
-                self.write_rom = RomWriteType::Rom;
-                #[cfg(feature = "log_memory")]
-                self.log_mem(address, "Read rom, no write");
-                result = Some(0)
-            }
-            // Both R and W
-            0xc083 | 0xc087 => {
-                self.read_rom = RomReadType::Bank2;
-                #[cfg(feature = "log_memory")]
-                self.log_mem(address, "Read bank 2");
-                if self.bank_write_count >= 2 {
-                    self.write_rom = RomWriteType::Bank2;
-                    #[cfg(feature = "log_memory")]
-                    self.log_mem(address, "Write bank 2");
-                }
-                result = Some(0)
-            }
-            // Both R and W
-            0xc08b | 0xc08f => {
-                self.read_rom = RomReadType::Bank1;
-                #[cfg(feature = "log_memory")]
-                self.log_mem(address, "Read bank 1");
-                if self.bank_write_count >= 2 {
-                    self.write_rom = RomWriteType::Bank1;
-                    #[cfg(feature = "log_memory")]
-                    self.log_mem(address, "Write bank 1");
-                }
-                result = Some(0)
+                self.log_mem(address, &format!("PREWRITE end: {:04X}", address));
             }
 
             EIGHTY_STORE_ON if write => { set_soft_switch!(self, EIGHTY_STORE_STATUS); }
@@ -480,65 +423,41 @@ impl Apple2Memory {
             }
             0xd000..=0xffff => {
                 let index: usize = if is_set!(self, ALT_ZP_STATUS) { 1 } else { 0 };
-                // let (index, address) = self.memory_index_and_address(address);
+                let bank = if self.bank1 { 0 } else { 1 };
                 if read {
-                    match self.read_rom {
-                        RomReadType::Rom => {
-                            result = Some(self.memories[0][address as usize]);
-                            #[cfg(feature = "log_memory")]
-                            self.log_mem(address, &format!("Read ROM {:04x}: {:02X}", address,
-                                result.unwrap()));
+                    if self.read_enabled {
+                        // Return value from the LC
+                        if (0xd000..=0xdfff).contains(&address) {
+                            result = Some(self.high_ram[index].banks[bank][address as usize - 0xd000]);
+                        } else {
+                            result = Some(self.high_ram[index].high_ram[address as usize - 0xe000]);
                         }
-                        RomReadType::Bank1 => {
-                            if (0xd000..=0xdfff).contains(&address) {
-                                result = Some(self.high_ram[index].banks[0][address as usize - 0xd000]);
-                            } else {
-                                result = Some(self.high_ram[index].high_ram[address as usize - 0xe000]);
-                            }
-                            #[cfg(feature = "log_memory")]
-                            self.log_mem(address, &format!("Read Bank 1 {:04x}: {:02X}", address,
-                                result.unwrap()));
-                        }
-                        RomReadType::Bank2 => {
-                            if (0xd000..=0xdfff).contains(&address) {
-                                result = Some(self.high_ram[index].banks[1][address as usize - 0xd000]);
-                            } else {
-                                result = Some(self.high_ram[index].high_ram[address as usize - 0xe000]);
-                            }
-                            #[cfg(feature = "log_memory")]
-                            self.log_mem(address, &format!("Read Bank 2 {:04x}: {:02X}", address,
-                                result.unwrap()));
-                        }
-
+                        #[cfg(feature = "log_memory")]
+                        self.log_mem(address, &format!("Read from LC {:04x}: {:02X}", address,
+                            result.unwrap()));
+                    } else {
+                        // Regular ROM memory access
+                        let r = self.memories[0][address as usize];
+                        result = Some(r);
                     }
                 } else {
-                    match self.write_rom {
-                        RomWriteType::Rom => {
-                            /* can't write to rom */
-                            result = Some(0);
+                    if address == 0xd17b && value == 0x22 {
+                        alog(&format!("Writing to D17B: {:02X}", value));
+                    }
+                    // write
+                    if self.write_enabled {
+                        // Write value in the LC
+                        if (0xd000..=0xdfff).contains(&address) {
+                            self.high_ram[index].banks[bank][address as usize - 0xd000] = value;
+                        } else {
+                            self.high_ram[index].high_ram[address as usize - 0xe000] = value;
                         }
-                        RomWriteType::Bank1 => {
-                            if (0xd000..=0xdfff).contains(&address) {
-                                self.high_ram[index].banks[0][address as usize - 0xd000] = value;
-                            } else {
-                                self.high_ram[index].high_ram[address as usize - 0xe000] = value;
-                            }
-                            result = Some(0);
-                            #[cfg(feature = "log_memory")]
-                            self.log_mem(address, &format!("Wrote Bank 1 {:04x}={:02X}", address,
-                                value));
-                        }
-                        RomWriteType::Bank2 => {
-                            if (0xd000..=0xdfff).contains(&address) {
-                                self.high_ram[index].banks[1][address as usize - 0xd000] = value;
-                            } else {
-                                self.high_ram[index].high_ram[address as usize - 0xe000] = value;
-                            }
-                            result = Some(0);
-                            #[cfg(feature = "log_memory")]
-                            self.log_mem(address, &format!("Wrote Bank 2 {:04x}={:02X}", address,
-                                value));
-                        }
+                        result = Some(value);
+                        #[cfg(feature = "log_memory")]
+                        self.log_mem(address, &format!("Read Bank 2 {:04x}: {:02X}", address,
+                            result.unwrap()));
+                    } else {
+                        // Writing to rom, ignore
                     }
                 }
             }
@@ -615,11 +534,8 @@ impl Apple2Memory {
                     if is_set!(self, READ_AUX_MEM_STATUS) { AUX } else { MAIN }
                 } else { MAIN };
                 result = Some(self.memories[index][address as usize]);
-            } else {
-                let index = if (0x200..0xc000).contains(&address) {
-                    if is_set!(self, WRITE_AUX_MEM_STATUS) { AUX } else { MAIN }
-                } else { MAIN };
-
+            } else if (0x200..0xc000).contains(&address) {
+                let index = if is_set!(self, WRITE_AUX_MEM_STATUS) { AUX } else { MAIN };
                 self.memories[index][address as usize] = value;
             }
         }

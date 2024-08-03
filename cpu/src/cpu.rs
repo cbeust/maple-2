@@ -449,7 +449,7 @@ impl <T: Memory> Cpu<T> {
                 resolved_address = Some(address);
                 resolved_value = Some(value);
                 resolved_read = false;
-                // Phantom read
+                // Phantom read (necessary to pass a2audit)
                 let _ = self.memory.get(address);
                 let new_value = value.wrapping_add(1);
                 self.memory.set(address, new_value);

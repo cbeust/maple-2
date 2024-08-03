@@ -72,6 +72,7 @@ impl Default for Config {
             // debug_asm: true,
             trace_to_file: false,
             // trace_to_file: true,
+            asynchronous_logging: false,
             csv: false,
             trace_file_csv: "c:\\t\\trace.csv".to_string(),
             trace_file_asm: "c:\\t\\trace.txt".to_string(),
@@ -83,7 +84,6 @@ impl Default for Config {
             watched_files: Vec::new(),
             is_65c02: false,
             emulator_speed_hz: DEFAULT_EMULATOR_SPEED_HZ,
-            asynchronous_logging: false,
         }
     }
 }

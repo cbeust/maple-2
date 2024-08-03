@@ -77,8 +77,6 @@ lazy_static! {
         "Batman".to_string(),
         "Algernon".to_string(),  // broken if q6 and q7 are tested in lss::step()
         "Micro invaders".to_string(), // 13 sectors (boot format = 2)
-        "F-15".to_string(), // F-15 Strike Eagle
-        "Drol".to_string(),
         "Bug Attack".to_string(),
         "Seafox".to_string(), // https://github.com/AppleWin/AppleWin/issues/668
         "Micro Invaders".to_string(),
