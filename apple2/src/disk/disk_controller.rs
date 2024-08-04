@@ -331,7 +331,8 @@ impl DiskController {
                     //     drive_index: self.drive_index,
                     // }));
                 }
-                0
+                // Necessary to boot Mr Do.
+                self.latch
             }
             0xc089 => {
                 // log_emulator(&format!("Turn motor on: {:02X}", self.latch));
