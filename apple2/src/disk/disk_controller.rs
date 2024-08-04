@@ -681,7 +681,6 @@ impl SectorRead {
                         self.sector = pair(self.current_byte, byte);
                         self.state = START;
                         Shared::set_sector(disk_index, self.sector);
-                        Shared::set_track(disk_index, self.track);
                         // println!();
                     }
                     _ => {

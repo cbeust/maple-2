@@ -141,19 +141,15 @@ impl DisksTab {
 
 fn drive_button_style(theme: &Theme, status: Status) -> button::Style {
     let mut style = button::primary(theme, status);
-    // if status == Status::Active {
-    //     style.background = Some(Background::Color(Color::from_rgb8(0x46, 0x46, 0x46)));
-    // }
+    if status == Status::Active {
+        style.background = Some(Background::Color(Color::from_rgb8(0x46, 0x46, 0x46)));
+    };
     style
 }
 
 /// The style of a button loadedin the drive
 fn drive_button_style_loaded(theme: &Theme, status: Status) -> button::Style {
-    let mut style = button::danger(theme, status);
-    // if status == Status::Active {
-    //     style.text_color = MColor::orange();
-    // }
-    style
+    button::danger(theme, status)
 }
 
 fn drive_button(label: String, highlight: bool, message: InternalUiMessage)
@@ -167,23 +163,23 @@ fn drive_button(label: String, highlight: bool, message: InternalUiMessage)
             .height(disks::DRIVE_BUTTON_HEIGHT)
             .color(Color::from_rgb8(0xce, 0xce, 0xce)))
         .style(style)
-        .on_press(message)
+        .on_press_maybe(if highlight { None } else { Some(message) })
         )
         .padding(2)
     .into()
 }
 
-fn drive_buttons(disk: &DisplayedDisk, highlight: bool) -> Element<InternalUiMessage> {
+fn drive_buttons(disk: &DisplayedDisk, highlight_1: bool, highlight_2: bool) -> Element<InternalUiMessage> {
     let path = disk.path.clone();
     if disk.file_name.ends_with("hdv") {
         row![
-            container(drive_button("HD1".into(), highlight, LoadHardDrive(0, path.clone()))),
-            container(drive_button("HD2".into(), highlight, LoadHardDrive(1, path))),
+            container(drive_button("HD1".into(), highlight_1, LoadHardDrive(0, path.clone()))),
+            container(drive_button("HD2".into(), highlight_2, LoadHardDrive(1, path))),
         ]
     } else {
         row![
-            container(drive_button(" 1 ".into(), highlight, LoadDrive(0, path.clone()))),
-            container(drive_button(" 2 ".into(), highlight, LoadDrive(1, path))),
+            container(drive_button(" 1 ".into(), highlight_1, LoadDrive(0, path.clone()))),
+            container(drive_button(" 2 ".into(), highlight_2, LoadDrive(1, path))),
         ]
     }.into()
 }
@@ -210,8 +206,9 @@ impl Tab for DisksTab {
                     );
                     let path_0 = Shared::get_drive(0).map_or("".to_string(), |d| d.path().into());
                     let path_1 = Shared::get_drive(1).map_or("".to_string(), |d| d.path().into());
-                    let highlight = disk.path == path_0|| disk.path == path_1;
-                    let buttons = drive_buttons(&disk, highlight);
+                    let highlight_1 = disk.path == path_0;
+                    let highlight_2 = disk.path == path_1;
+                    let buttons = drive_buttons(&disk, highlight_1, highlight_2);
                     Row::new()
                         .align_items(Alignment::Center)
                         .padding(disks::padding())

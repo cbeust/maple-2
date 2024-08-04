@@ -11,7 +11,7 @@ use iced::widget::canvas::{Cache, Event, event, Fill, Geometry, Path, Program};
 use iced_aw::Tabs;
 use crate::config_file::ConfigFile;
 use crate::ui::iced::tab::Tab;
-use crate::ui::iced::style::{m_button};
+use crate::ui::iced::style::{m_button, MColor};
 use crate::constants::{CPU_REFRESH_MS, HIRES_HEIGHT, HIRES_WIDTH};
 use crate::disk::drive::DriveStatus;
 use crate::messages::{CpuDumpMsg, DrawCommand, SetMemoryMsg, ToCpu, ToMiniFb};
@@ -280,6 +280,16 @@ impl Program<InternalUiMessage> for MainWindow
                             println!("Unknown message in draw: {:#?}", dc);
                         }
                     }
+                }
+
+                //
+                // Scan lines
+                //
+                let w = bounds.width;
+                for y in (0..bounds.height as u16).step_by(2) {
+                    frame.fill_rectangle(Point::new(0.0, y as f32),
+                        Size::new(w, 1.0),
+                        Fill::from(MColor::black1()));
                 }
             });
 

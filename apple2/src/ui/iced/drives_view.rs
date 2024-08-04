@@ -29,7 +29,7 @@ impl MainWindow {
             Shared::get_sector(0), 0, &Shared::get_drive(0)));
 
         let drive2 = m_group("Drive 2".into(),
-            Self::ts(false, 1, self.selected_drive == 1, Shared::get_track(0) as f32,
+            Self::ts(false, 1, self.selected_drive == 1, Shared::get_track(1) as f32,
                 Shared::get_sector(1), 0, &Shared::get_drive(1)));
 
         container(row![drive1, drive2])

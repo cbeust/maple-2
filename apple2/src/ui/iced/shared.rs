@@ -9,7 +9,6 @@ use crate::messages::CpuDumpMsg;
 #[derive(Default)]
 struct Drive {
     disk_info: Option<DiskInfo>,
-    track: u8,
     sector: u8,
     phase_160: u8,
 }
@@ -62,11 +61,7 @@ impl Shared {
     }
 
     pub fn get_track(drive_index: usize) -> u8 {
-        DRIVES[drive_index].read().unwrap().track
-    }
-
-    pub fn set_track(drive_index: usize, track: u8) {
-        DRIVES[drive_index].write().unwrap().track = track;
+        Self::get_phase_160(drive_index) / 4
     }
 
     pub fn get_block_number(drive_index: usize) -> u16 {
