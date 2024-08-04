@@ -79,7 +79,7 @@ impl DebuggerWindow {
     fn flags(&self) -> StatusFlags { self.cpu().p }
 
     fn cpu(&self) -> CpuDumpMsg {
-        Shared::cpu()
+        Shared::get_cpu()
     }
 
     /// Display the registers: A, X, Y, ...
@@ -406,9 +406,9 @@ impl Window for DebuggerWindow {
             DebuggerMemoryTypeSelected(memory_type) => {
                 println!("Memory type: {}", memory_type);
                 self.memory_state.memory = if memory_type == MemoryType::Main {
-                    Shared::cpu().memory
+                    Shared::get_cpu().memory
                 } else {
-                    Shared::cpu().aux_memory
+                    Shared::get_cpu().aux_memory
                 };
                 self.memory_state.memory_type = memory_type;
             }

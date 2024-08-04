@@ -150,7 +150,7 @@ fn test_encoded_data() {
 fn test_boot_sequence() {
     let mut computer = create_apple2(
         None, None, None, [None, None],
-        EmulatorConfigMsg::default(), None);
+        Box::new(EmulatorConfigMsg::default()), None);
     println!("Created computer");
     computer.cpu.cpu.pc = 0xc65c;
     computer.cpu.cpu.x = 0x60;

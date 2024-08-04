@@ -31,7 +31,7 @@ pub enum DrawCommand {
 
 #[derive(Clone, Debug)]
 pub enum ToUi {
-    Config(EmulatorConfigMsg),
+    Config(Box<EmulatorConfigMsg>),
     // CpuDump(CpuDumpMsg),
     EmulatorSpeed(f32),  // Speed in Mhz
     // Different drive selected (0 or 1)

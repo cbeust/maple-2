@@ -253,7 +253,7 @@ fn start(egui: bool) {
     if benchmark {
         let mut apple2 = create_apple2(
             Some(sender), Some(logging_sender),
-            Some(receiver2), disks, emulator_config.clone(), None);
+            Some(receiver2), disks, Box::new(emulator_config.clone()), None);
         apple2.cpu.run();
     } else {
         let sender4 = sender2.clone();
@@ -281,7 +281,7 @@ fn start(egui: bool) {
                 };
                 let mut apple2 = create_apple2(Some(sender.clone()),
                     Some(logging_sender.clone()),
-                    Some(receiver2.clone()), disks.clone(), ecm, Some(handle.clone()));
+                    Some(receiver2.clone()), disks.clone(), Box::new(ecm), Some(handle.clone()));
                 // if audit {
                 //     apple2.cpu.cpu.memory.load_file("/Users/Ced/rust/a2audit/audit/audit.o", 0x6000, 0, 0, true);
                 //     apple2.cpu.cpu.pc = 0x6000;
@@ -381,7 +381,7 @@ pub(crate) fn create_apple2(
     logging_sender: Option<Sender<ToLogging>>,
     receiver: Option<Receiver<ToCpu>>,
     disk_infos: [Option<DiskInfo>; 2],
-    config: EmulatorConfigMsg,
+    config: Box<EmulatorConfigMsg>,
     handle: Option<Handle>)
 -> Apple2
 {

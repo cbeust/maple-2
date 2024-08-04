@@ -59,7 +59,7 @@ pub struct AppleCpu {
     last_speed_sent: Instant,
     /// Cycle count to wait until processing next instruction
     wait: u8,
-    config: EmulatorConfigMsg,
+    config: Box<EmulatorConfigMsg>,
     cycles: u128,
     start: Instant,
     started: bool,
@@ -67,7 +67,7 @@ pub struct AppleCpu {
 }
 
 impl AppleCpu {
-    pub fn new(cpu: Cpu<Apple2Memory>, config: EmulatorConfigMsg,
+    pub fn new(cpu: Cpu<Apple2Memory>, config: Box<EmulatorConfigMsg>,
         sender: Option<Sender<ToUi>>,
             receiver: Option<Receiver<ToCpu>>, handle: Option<Handle>) -> Self {
         Self { cpu, sender, receiver,
@@ -250,7 +250,7 @@ impl AppleCpu {
                                     _ => {}
                                 };
 
-                                Shared::cpu().run_status = self.cpu.run_status;
+                                Shared::get_cpu().run_status = self.cpu.run_status;
                             }
                             TraceStatus(trace_status) => {
                                 let mut remove = false;

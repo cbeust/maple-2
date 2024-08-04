@@ -15,9 +15,9 @@ impl MainWindow {
 
     fn hard_drives(&self) -> Element<InternalUiMessage> {
         let drive1 = m_group("Hard drive 1".into(),
-            Self::ts(true, 0, true, 0.0, 0, Shared::block_number(0), &Shared::hard_drive(0)));
+            Self::ts(true, 0, true, 0.0, 0, Shared::get_block_number(0), &Shared::get_hard_drive(0)));
         let drive2 = m_group("Hard drive 2".into(),
-            Self::ts(true, 1, false, 0.0, 0, Shared::block_number(1), &Shared::hard_drive(1)));
+            Self::ts(true, 1, false, 0.0, 0, Shared::get_block_number(1), &Shared::get_hard_drive(1)));
 
         container(row![drive1, drive2])
             .into()
@@ -25,12 +25,12 @@ impl MainWindow {
 
     fn floppies(&self) -> Element<InternalUiMessage> {
         let drive1 = m_group("Drive 1".into(),
-            Self::ts(false, 0, self.selected_drive == 0, Shared::track(0) as f32,
-            Shared::sector(0), 0, &Shared::drive(0)));
+            Self::ts(false, 0, self.selected_drive == 0, Shared::get_track(0) as f32,
+            Shared::get_sector(0), 0, &Shared::get_drive(0)));
 
         let drive2 = m_group("Drive 2".into(),
-            Self::ts(false, 1, self.selected_drive == 1, Shared::track(0) as f32,
-                Shared::sector(1), 0, &Shared::drive(1)));
+            Self::ts(false, 1, self.selected_drive == 1, Shared::get_track(0) as f32,
+                Shared::get_sector(1), 0, &Shared::get_drive(1)));
 
         container(row![drive1, drive2])
             .into()

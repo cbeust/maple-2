@@ -19,21 +19,21 @@ struct HeadMovement {
 }
 
 #[derive(Default)]
-pub struct DiskTab {
+pub struct DriveTab {
     cache: Cache,
     movements: Vec<HeadMovement>,
 }
 
-impl DiskTab {
+impl DriveTab {
     fn disk(&self) -> Result<Disk, String> {
-        Disk::new_with_disk_info(Shared::drive(0))
+        Disk::new_with_disk_info(Shared::get_drive(0))
     }
 }
 
 /// Display the last 50 movements
 const MOVEMENTS_MAX: usize = 40;
 
-impl DiskTab {
+impl DriveTab {
     pub fn update2(&mut self, message: InternalUiMessage) {
         match message {
             InternalUiMessage::DiskInserted(_, _, _) => {
@@ -114,7 +114,7 @@ impl DiskTab {
 
 }
 
-impl Tab for DiskTab {
+impl Tab for DriveTab {
     type Message = InternalUiMessage;
 
     fn title(&self) -> String {
@@ -160,7 +160,7 @@ impl Tab for DiskTab {
 #[derive(Default)]
 pub struct MyState;
 
-impl<InternalUiMessage> Program<InternalUiMessage> for DiskTab {
+impl<InternalUiMessage> Program<InternalUiMessage> for DriveTab {
     type State = MyState;
 
     fn draw(&self, _state: &Self::State, renderer: &Renderer, _theme: &Theme, bounds: Rectangle,

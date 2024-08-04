@@ -98,10 +98,10 @@ impl DiskController {
             sender,
             ..Default::default()
         };
-        if let Some(di) = Shared::drive(0) {
+        if let Some(di) = Shared::get_drive(0) {
             result.load_disk_from_file(0, di);
         }
-        if let Some(di) = Shared::drive(1) {
+        if let Some(di) = Shared::get_drive(1) {
             result.load_disk_from_file(1, di);
         }
         result
@@ -356,9 +356,9 @@ impl DiskController {
             }
             0xc08c => {
                 let drive_index = self.drive_index;
-                let current_phase = Shared::phase_160(drive_index);
+                let current_phase = Shared::get_phase_160(drive_index);
                 if self.first_time_reading_phase[drive_index] != current_phase {
-                    send_message!(&self.sender, FirstRead(drive_index, Shared::phase_160(drive_index)));
+                    send_message!(&self.sender, FirstRead(drive_index, Shared::get_phase_160(drive_index)));
                     self.first_time_reading_phase[drive_index] = current_phase;
                 }
                 // Q6L

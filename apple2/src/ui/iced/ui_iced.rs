@@ -31,7 +31,7 @@ pub enum TabId {
     #[default]
     DisksTab,
     NibblesTab,
-    DiskTab,
+    DriveTab,
 }
 
 pub fn main_iced(sender: Option<Sender<ToCpu>>,
@@ -128,7 +128,7 @@ impl Default for EmulatorApp {
 
 impl EmulatorApp {
     fn is_paused(&self) -> bool {
-        match Shared::cpu().run_status {
+        match Shared::get_cpu().run_status {
             RunStatus::Continue(_) => { false }
             RunStatus::Stop(_, _) => { true }
         }
@@ -136,7 +136,7 @@ impl EmulatorApp {
 
     fn memory_view_state(&self) -> MemoryViewState {
         MemoryViewState {
-            memory: Shared::cpu().memory,
+            memory: Shared::get_cpu().memory,
             location: "".into(),
             memory_type: MemoryType::Main
         }
@@ -392,7 +392,7 @@ impl EmulatorApp {
             window::close_events().map(WindowClosed),
             // stream,
         ];
-        if ! self.exit && matches!(Shared::cpu().run_status, RunStatus::Continue(_)) {
+        if ! self.exit && matches!(Shared::get_cpu().run_status, RunStatus::Continue(_)) {
             subscriptions.push(stream);
         }
 

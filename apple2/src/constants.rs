@@ -86,6 +86,7 @@ lazy_static! {
         // It requires a custom bit timing on the woz for the entire disk (need FLUX)
         "Newsroom".to_string(),
         "Mr. Do".to_string(),
+        "Pest Patrol".to_string(),
     ];
 
     pub static ref DEFAULT_DISKS_DIRECTORIES: Vec<String> = vec![];

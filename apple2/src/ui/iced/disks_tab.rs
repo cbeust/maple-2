@@ -11,6 +11,7 @@ use crate::config_file::ConfigFile;
 use crate::constants::{BUGGY_DISKS, DISKS_SUFFIXES};
 use crate::ui::iced::message::InternalUiMessage;
 use crate::ui::iced::message::InternalUiMessage::{LoadDrive, LoadHardDrive};
+use crate::ui::iced::shared::Shared;
 use crate::ui::iced::tab::Tab;
 use crate::ui::iced::style::{disks, MColor, m_group};
 use crate::ui_log;
@@ -140,39 +141,49 @@ impl DisksTab {
 
 fn drive_button_style(theme: &Theme, status: Status) -> button::Style {
     let mut style = button::primary(theme, status);
-    if status == Status::Active {
-        style.background = Some(Background::Color(Color::from_rgb8(0x46, 0x46, 0x46)));
-    }
+    // if status == Status::Active {
+    //     style.background = Some(Background::Color(Color::from_rgb8(0x46, 0x46, 0x46)));
+    // }
     style
 }
 
-fn drive_button(label: String, message: InternalUiMessage)
+/// The style of a button loadedin the drive
+fn drive_button_style_loaded(theme: &Theme, status: Status) -> button::Style {
+    let mut style = button::danger(theme, status);
+    // if status == Status::Active {
+    //     style.text_color = MColor::orange();
+    // }
+    style
+}
+
+fn drive_button(label: String, highlight: bool, message: InternalUiMessage)
     -> Element<'static, InternalUiMessage>
 {
+    let style = if highlight { drive_button_style_loaded } else { drive_button_style };
     container(button(text(label).font(Font::MONOSPACE)
             .horizontal_alignment(Horizontal::Center)
             .size(disks::DRIVE_FONT_SIZE)
             // .width(w)
             .height(disks::DRIVE_BUTTON_HEIGHT)
             .color(Color::from_rgb8(0xce, 0xce, 0xce)))
-        .style(drive_button_style)
+        .style(style)
         .on_press(message)
         )
         .padding(2)
     .into()
 }
 
-fn drive_buttons(disk: &DisplayedDisk) -> Element<InternalUiMessage> {
+fn drive_buttons(disk: &DisplayedDisk, highlight: bool) -> Element<InternalUiMessage> {
     let path = disk.path.clone();
     if disk.file_name.ends_with("hdv") {
         row![
-            container(drive_button("HD1".into(), LoadHardDrive(0, path.clone()))),
-            container(drive_button("HD2".into(), LoadHardDrive(1, path))),
+            container(drive_button("HD1".into(), highlight, LoadHardDrive(0, path.clone()))),
+            container(drive_button("HD2".into(), highlight, LoadHardDrive(1, path))),
         ]
     } else {
         row![
-            container(drive_button(" 1 ".into(), LoadDrive(0, path.clone()))),
-            container(drive_button(" 2 ".into(), LoadDrive(1, path))),
+            container(drive_button(" 1 ".into(), highlight, LoadDrive(0, path.clone()))),
+            container(drive_button(" 2 ".into(), highlight, LoadDrive(1, path))),
         ]
     }.into()
 }
@@ -197,7 +208,10 @@ impl Tab for DisksTab {
                             if is_buggy { MColor::red() } else { MColor::yellow() }
                         ).size(disks::FONT_SIZE)
                     );
-                    let buttons = drive_buttons(&disk);
+                    let path_0 = Shared::get_drive(0).map_or("".to_string(), |d| d.path().into());
+                    let path_1 = Shared::get_drive(1).map_or("".to_string(), |d| d.path().into());
+                    let highlight = disk.path == path_0|| disk.path == path_1;
+                    let buttons = drive_buttons(&disk, highlight);
                     Row::new()
                         .align_items(Alignment::Center)
                         .padding(disks::padding())

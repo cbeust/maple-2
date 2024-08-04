@@ -53,7 +53,7 @@ impl SmartPort {
     /// Read the block_number in our holding 512 byte buffer.
     /// That buffer will then be returned one byte at a time each time $C0F8 is read
     fn read_block(&mut self, block_number: u16) -> io::Result<()> {
-        if let Some(disk_info) = &Shared::hard_drive(0) {
+        if let Some(disk_info) = &Shared::get_hard_drive(0) {
             if self.file_content.is_empty() {
                 let mut file = File::open(&disk_info.path)?;
                 let metadata = fs::metadata(&disk_info.path)?;

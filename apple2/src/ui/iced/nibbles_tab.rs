@@ -104,9 +104,9 @@ impl Tab for NibblesTab {
         //
         // Current track
         //
-        let current_track_number = (Shared::phase_160(0) as f32) / 4.0;
+        let current_track_number = (Shared::get_phase_160(0) as f32) / 4.0;
         let label = format!("Current track: {:0.2}  (phase: {})",
-            current_track_number, Shared::phase_160(0));
+            current_track_number, Shared::get_phase_160(0));
         let current_track = container(text(label).size(20.0))
             .width(Length::Fill)
             .align_x(Horizontal::Center);
@@ -123,7 +123,7 @@ impl Tab for NibblesTab {
             vec![TrackType::Empty; 160]
         };
 
-        let phase = Shared::phase_160(0);
+        let phase = Shared::get_phase_160(0);
         let track_map = m_group("Track map".into(),
             Column::new()
                 .push(phase_row(0, &t2, phase))
@@ -145,7 +145,7 @@ impl Tab for NibblesTab {
         let mut column: Column<InternalUiMessage> = Column::new();
         if let Some(ref disk) = &disk {
             let mut address = 0_u16;
-            let analyzed_track = disk.analyze_track(Shared::phase_160(0) as usize);
+            let analyzed_track = disk.analyze_track(Shared::get_phase_160(0) as usize);
             let nibbles = &analyzed_track.nibbles;
             let mut index = 0_usize;
             while index < nibbles.len() {

@@ -20,7 +20,7 @@ use crate::ui::iced::disks_tab::DisksTab;
 use crate::ui::iced::nibbles_tab::NibblesTab;
 use crate::ui::iced::ui_iced::{TabId, Window};
 use crate::{send_message};
-use crate::ui::iced::disk_tab::DiskTab;
+use crate::ui::iced::disk_tab::DriveTab;
 use crate::ui::iced::keyboard::{special_named_key};
 use crate::ui::iced::message::{SpecialKeyMsg};
 use crate::ui::iced::shared::*;
@@ -38,7 +38,7 @@ pub struct MainWindow {
     active_tab: TabId,
     disks_tab: DisksTab,
     nibbles_tab: NibblesTab,
-    disk_tab: DiskTab,
+    drive_tab: DriveTab,
 
     drive_statuses: [DriveStatus; 2],
 
@@ -57,7 +57,7 @@ impl MainWindow {
     -> Self {
         let mut result = Self {
             config_file: config_file.clone(),
-            active_tab: TabId::DiskTab,
+            active_tab: TabId::DisksTab,
             drive_statuses: [ DriveStatus::default(), DriveStatus::default() ],
             draw_commands: vec![],
             last_update: Instant::now(),
@@ -66,10 +66,10 @@ impl MainWindow {
 
             disks_tab: Default::default(),
             nibbles_tab: Default::default(),
-            disk_tab: Default::default(),
+            drive_tab: Default::default(),
             cache: Default::default(),
             hires_screen: Default::default(),
-            show_drives: Shared::hard_drive(0).is_none(),
+            show_drives: Shared::get_hard_drive(0).is_none(),
         };
         result.disks_tab.update(Init(config_file.clone()));
         result.nibbles_tab.update(Init(config_file.clone()));
@@ -100,7 +100,7 @@ impl MainWindow {
     }
 
     fn cpu(&self) -> CpuDumpMsg {
-        Shared::cpu()
+        Shared::get_cpu()
     }
 }
 
@@ -131,7 +131,7 @@ impl Window for MainWindow {
         let tabs: Element<'_, InternalUiMessage> = Tabs::new(InternalUiMessage::TabSelected)
             .push(TabId::DisksTab, self.disks_tab.tab_label(), self.disks_tab.view())
             .push(TabId::NibblesTab, self.nibbles_tab.tab_label(), self.nibbles_tab.view())
-            .push(TabId::DiskTab, self.disk_tab.tab_label(), self.disk_tab.view())
+            .push(TabId::DriveTab, self.drive_tab.tab_label(), self.drive_tab.view())
             .set_active_tab(&self.active_tab)
             .height(Length::Fill)
             .into();
@@ -167,7 +167,7 @@ impl Window for MainWindow {
                 if drive == 0 {
                     self.nibbles_tab.update(DiskInserted(is_hard_drive, drive, disk_info.clone()));
                 }
-                self.disk_tab.update2(DiskInserted(is_hard_drive, drive, disk_info));
+                self.drive_tab.update2(DiskInserted(is_hard_drive, drive, disk_info));
             }
             TabSelected(selected) => {
                 println!("Selected: {selected:#?}");
@@ -218,7 +218,7 @@ impl Window for MainWindow {
                 self.config_file.set_drive(is_hard_drive, drive_number, None);
             }
             FirstRead(_, _) | ClearDiskGraph => {
-                self.disk_tab.update2(message);
+                self.drive_tab.update2(message);
             }
             _ => {
                 println!("Unknown message {message:#?}");
