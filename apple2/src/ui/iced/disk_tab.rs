@@ -1,10 +1,11 @@
 use std::cmp::min;
 use std::f32::consts::PI;
 
-use iced::{Alignment, Background, Border, Color, Element, Length, Point, Rectangle, Renderer, Size, Theme};
+use iced::{Alignment, Border, Color, Element, Length, Point, Rectangle, Renderer, Size, Theme};
 use iced::mouse::Cursor;
-use iced::widget::{button, Canvas, canvas, Column, container, Row, text};
+use iced::widget::{button, Canvas, canvas, Column, container, Container, Row, text};
 use iced::widget::canvas::{Cache, Geometry, Path, Program};
+use once_cell::unsync::Lazy;
 
 use crate::disk::disk::Disk;
 use crate::disk::disk_controller::MAX_PHASE;
@@ -15,7 +16,6 @@ use crate::ui::iced::tab::Tab;
 
 struct HeadMovement {
     phase_160: u8,
-    is_read: bool,
 }
 
 #[derive(Default)]
@@ -23,6 +23,10 @@ pub struct DriveTab {
     cache: Cache,
     movements: Vec<HeadMovement>,
 }
+
+const COLOR_FULL_TRACK: Lazy<Color> = Lazy::new(|| Color::WHITE);
+const COLOR_HALF_TRACK: Lazy<Color> = Lazy::new(|| MColor::orange());
+const COLOR_QUARTER_TRACK: Lazy<Color> = Lazy::new(|| MColor::red());
 
 impl DriveTab {
     fn disk(&self) -> Result<Disk, String> {
@@ -41,7 +45,7 @@ impl DriveTab {
             }
             InternalUiMessage::FirstRead(_drive, phase_160) => {
                 self.cache.clear();
-                self.movements.push(HeadMovement { is_read: true, phase_160 });
+                self.movements.push(HeadMovement { phase_160 });
             }
             InternalUiMessage::ClearDiskGraph => {
                 self.movements.clear();
@@ -51,9 +55,7 @@ impl DriveTab {
         }
     }
 
-    fn draw_graph(&self, bounds: Rectangle, renderer: &Renderer)
-        -> Geometry
-    {
+    fn draw_graph(&self, bounds: Rectangle, renderer: &Renderer) -> Geometry {
         let margin = 15.0;
 
         let geometry = self.cache.draw(renderer, bounds.size(), |frame| {
@@ -99,11 +101,11 @@ impl DriveTab {
                 let y = phase_height(m.phase_160 as usize);
                 let circle = Path::circle([x, y].into(), 3.0);
                 let color = match m.phase_160 % 4 {
-                    0 => { Color::WHITE }
-                    2 => { MColor::orange() }
-                    _ => { MColor::red() }
+                    0 => { COLOR_FULL_TRACK }
+                    2 => { COLOR_HALF_TRACK }
+                    _ => { COLOR_QUARTER_TRACK }
                 };
-                frame.fill(&circle, color);
+                frame.fill(&circle, *color);
                 // frame.fill_rectangle(Point::new(x, y), Size::new(4.0, 4.0), Color::WHITE);
 
             }
@@ -122,11 +124,14 @@ impl Tab for DriveTab {
     }
 
     fn content(&self) -> Element<'_, InternalUiMessage> {
+        fn c(title: &str, color: Color) -> Container<InternalUiMessage> {
+            container(text(title).color(color).width(Length::Fill)).padding([0.0, 20.0, 0.0, 20.0])
+        }
         let legend = container(
             Row::new()
-                .push(container(text("Full track").color(Color::WHITE).width(Length::Fill)).padding([0.0, 40.0, 0.0, 40.0]))
-                .push(container(text("Half track").color(MColor::orange()).width(Length::Fill)))
-                .push(container(text("Quarter track").color(MColor::red()).width(Length::Fill)))
+                .push(c("Full track", *COLOR_FULL_TRACK))
+                .push(c("Half track", *COLOR_HALF_TRACK))
+                .push(c("Quarter track", *COLOR_QUARTER_TRACK))
                 .spacing(10.0)
                 .align_items(Alignment::Center)
         )
