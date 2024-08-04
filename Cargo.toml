@@ -1,8 +1,8 @@
 [workspace]
 members = [
+    "apple2",
     "cpu",
     "harte",
-    "apple2",
     "tools"
 ]
 resolver = "2"

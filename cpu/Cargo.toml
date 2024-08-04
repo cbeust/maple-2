@@ -3,7 +3,6 @@ name = "cpu"
 version = "0.1.0"
 authors = ["Cedric Beust <cbeust@gmail.com>"]
 edition = "2021"
-default-run = "cpu"
 
 [dependencies]
 #serde = { version = "1.0.131", features = ["derive"] }

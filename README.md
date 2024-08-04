@@ -30,7 +30,6 @@ Maple // has a specific focus on being developer friendly by exposing a lot of i
 ## Building and running
 
 ```
-$ cd apple2
 $ cargo run -r
 ```
 
