@@ -95,11 +95,11 @@ As of this writing, Maple-2 boots the following protected `woz` disks:
     </tr>
     <tr>
         <td><img src="pics/nibbles-view.png"/></td>
-        <td><img src="pics/floppy-disk-view.png"/></td>
+        <td><img src="pics/drive-view.png"/></td>
     </tr>
     <tr align="center">
         <td><b>Nibbles view</b></td>
-        <td><b>Floppy Disk view</b></td>
+        <td><b>Drive view</b></td>
     </tr>
     <tr>
         <td><img src="pics/total-replay.png"/></td>
@@ -151,10 +151,6 @@ Once you have selected a directory, all the disks found in that directory and be
 Just press "Drive 1" or "Drive 2" to insert that disk in the drive. You can use the filtering box on the side
 to narrow down the disk you're looking for.
 
-#### Memory
-
-This view presents the memory along with various convenient shortcuts to memory banks (e.g. Text, Text Aux, ...).
-
 #### Nibbles
 
 This view shows you what was found on the disk. It's made of two parts:
@@ -166,9 +162,14 @@ This view shows you what was found on the disk. It's made of two parts:
   markers for address and data in order to facilitate identifying where these tracks start. This will only
   produce highlighted results for standard markers (`D5 AA 96` / `DE AA` and `D5 AA AD`/`DE AA`).
 
-### Floppy disk
+### Drive
 
-This view shows you where the track is at it moves across the disk.
+THis view shows you a graphical representation of the travels of the disk drive. It is updated in real time as
+the disk drive reads more tracks.
+
+It's a great way to visualize copy protections in action. For a regular, unprotected disk, you would expect to
+only see white dots. As soon as you see orange (half tracks) or red (quarter tracks) show up on this graph, it
+means you are dealing with a protected disk.
 
 ## Tests
 
