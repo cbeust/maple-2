@@ -289,6 +289,9 @@ impl Apple2Memory {
                     result = Some(0);
                 }
             }
+            0xc011 => {
+                result = Some(if self.bank1 { 0 } else { 0x80 })
+            }
             0xc019 => {
                 // VBL
                 // What it should be:

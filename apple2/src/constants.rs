@@ -70,7 +70,6 @@ pub(crate) fn pc() -> String {
 lazy_static! {
     /// Disks that are not booting or not working properly
     pub static ref BUGGY_DISKS: Vec<String> = vec![
-        "Maniac Mansion".to_string(), // Infinite loop at $204
         "Stargate".to_string(), // I/O error
         "DOS 3.2".to_string(),
         "Akalabeth".to_string(),  // 3.2?
