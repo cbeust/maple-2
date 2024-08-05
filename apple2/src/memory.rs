@@ -308,9 +308,11 @@ impl Apple2Memory {
                 }
             }
 
+            0xc030..=0xc03f => {
+                // alog(&format!("Speaker"));
+            }
             0xc080..=0xc08f => {
-                // PREWRITE is set by odd read access in the $C08X range.
-                // It is reset by even read access or any write access in the $C08X range.
+                // Language card
                 // This code is a close translation of Table 5.5, page 5-24 from
                 // Sather's "Understanding the Apple IIe" (note: IIe, not II+).
                 let odd = (address & 1) == 1;
@@ -332,14 +334,10 @@ impl Apple2Memory {
 
                 // Addresses 0..7 select bank 2, addresses 8-f select bank 1
                 let digit = address & 0xf;
-                self.bank1 = if digit <= 7 { false } else { true };
+                self.bank1 = digit > 7;
 
                 // Read is enabled for any access to 0, 4, 8, c, 3, 7, b, f
-                self.read_enabled = if [0, 4, 8, 0xc, 3, 7, 0xb, 0xf].contains(&digit) {
-                    true
-                } else {
-                    false
-                };
+                self.read_enabled = [0, 4, 8, 0xc, 3, 7, 0xb, 0xf].contains(&digit);
 
                 #[cfg(feature = "log_memory")]
                 self.log_mem(address, &format!("PREWRITE end: {:04X}", address));
