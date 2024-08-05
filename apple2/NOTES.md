@@ -42,6 +42,34 @@ speaker sound.
 
 https://github.com/badvision/jace/blob/main/src/main/java/jace/apple2e/Speaker.java
 
+Wiz:
+
+En première approximation,  tu enregistres le fait qu'un tick de c030 met le son à un et le tick suivant
+le met à zéro => donc tu as une onde avec des paquets de 1 suivi de paquets de zéros. Tu fais ensuite ce qu'on
+appelle une "décimation" : tu relis ton signal de  1MHz "tous les" 44Khz (bref, tu lis 1 sample de ton signal 1MHz
+tous les 1_000_000/44_1000).
+
+Vu comment les musiques apple sont conçues, ça marchera déjà pas mal.
+Ensuite, le gars de KEGS a une routine plus sophistiquée qui fait tout ça "on the fly" et en plus de
+manière numériquement propre. Le gars a décrit son algo et j'ai reproduit
+ça ici: https://gitlab.com/wiz21/accurapple/-/blob/main/Documentations/maths.pdf section 6.1
+
+Si tu veux aller plus loin, il faut absolument comprendre Fourrier et les filtres passe bas.
+Ensuite, y'a le niveau encore au dessus où on simule le fait que la réponse du speaker à l'impulse dépend
+des impulse précédentes. Là, cf. le même PDF où je donne toutes les maths du "simple harmonic oscillator".
+Mais là, ça ne fait une différence que dans très peu de cas => gros coupage de cheveux en quatre pour pas
+grand chose (mais c'est très fun à comprendre !!!!)
+Enfin, le speaker a une réponse fréquentielle bien à lui et pour la reproduire il faut passer encore par
+une sorte d'équalisation. Pour le momen j'utilise Fourrier pour ça mais je pense que c'est pas correct point
+de vue théorique. Ensuit,e pour le faire, il faut enregistrer la réponse fréquentielle en question. J'en suis
+là car pour ça il faut un studio d'enregistrement et des gens compétents pour faire ça (idéalement, il faut
+une chambre anéchoïque et des micros qui coûtent des bagnoles). Mais même avec ça, on est encore loin du
+compte car en fait ce que les gens ont dans l'oreille, ce n'est pas le son de leur Apple mais le son de leur
+Apple dans leur bureau. Et la pièce change énormément la perception qu'on a du son 🙂
+Et tout ça, c'est des trucs que j'ai appris sur le tas... Un ingé son avec le bagage mathématique
+y trouverait sans doute bcp à redire !
+
+Les jeux à tester: Prince of Persia,  SeaDragon, Archon, Goonies, Bruce Lee...
 
 
 ## List of WOZ disks that require FLUX support
@@ -322,6 +350,14 @@ those instructions. But a combination of flipping the softswitches in a certain 
 read/write to the 2nd text screen and 2nd hi-res screen of Aux memory. I wrote a demo displaying Dbl-hi-res page #2
 while drawing on dbl-hi-res page #1 and page flipping between them.
 
+## Floppy drawing
+
+fast-image-resize
+
+Visualization:
+https://github.com/dbalsom/fluxfox/blob/main/src/visualization/mod.rs
+
+
 ## Night Mission (Woz v1 disk)
 
 - Transfers control from $804 to $304.
@@ -418,4 +454,24 @@ loadTrack() woz2   drive:1 tmap track:31 (7.75)
 loadTrack() woz2   drive:1 tmap track:35 (8.75)
 loadTrack() woz2   drive:1 tmap track:39 (9.75)
 loadTrack() woz2   drive:1 tmap track:43 (10.75)
+```
+
+Final fix: requires a perfect implementation of the LC. Even though I was passing `a2audit`, there were still bugs
+in my LC implementation that caused F-15 to not boot.
+
+Mr.Do
+=====
+
+Need to support the undocumented opcode $74 and also return the latch from $C088,X (instead of the usual $C08C,X).
+
+Maniac Mansion
+==============
+
+The game uses the odd $C011 switch to make a few language card decisions, so you need to implement it. Sather
+says it represents the opposite of the bank1/bank2 switch. This fix allowed the game to boot:
+
+```rust
+0xc011 => {
+    result = Some(if self.bank1 { 0 } else { 0x80 })
+}
 ```
