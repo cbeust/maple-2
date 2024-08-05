@@ -144,7 +144,7 @@ pub fn configure_log(config: &Config, remove: bool) -> log4rs::Config {
             }
             // https://docs.rs/log4rs/1.0.0/log4rs/encode/pattern/index.html#formatters
             let appender = ConsoleAppender::builder()
-                .encoder(Box::new(PatternEncoder::new("{d}: {m}\n")))
+                .encoder(Box::new(PatternEncoder::new("{m}\n")))
                 // .encoder(Box::new(PatternEncoder::new("{d(%H:%M:%SS)}: {m}\n")))
                 .build();
             ("stdout", Box::new(appender))
