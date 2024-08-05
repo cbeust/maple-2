@@ -309,6 +309,12 @@ impl DiskController {
             sender: &Option<Sender<ToUi>>)
             -> u8 {
         let address = address - (self.slot * 16) as u16;
+
+        // Page 9-14 of "Understanding the Apple II" from Jim Sather :
+        // "$C08C,X and $C08D,X are also the normal input and output port addresses used by RWTS
+        // for transfer of disk data. In reality any even address could be used to load data from
+        // the data registers to the MPU, although $C088 (DRIVE OFF) and $C08A (SELECT DRIVE 1)
+        // would be inappropriate for this purpose."
         match address {
             0xc080..=0xc087 => {
                 if self.is_motor_on() {
@@ -346,7 +352,7 @@ impl DiskController {
                 // log::info!("Switching to left drive");
                 send_message!(&sender,DiskSelected(0));
                 self.drive_index = 0;
-                0
+                self.latch
             }
             0xc08b => {
                 // log::info!("Switching to right drive");
