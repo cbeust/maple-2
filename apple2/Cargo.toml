@@ -41,3 +41,5 @@ iced = {  git = "https://github.com/iced-rs/iced.git", features = [ "canvas", "t
 iced_aw = { git = "https://github.com/iced-rs/iced_aw.git", features = ["tabs"], branch = "Beta" }
 
 tokio = {  version = "1.38.0" }
+
+cpal = { version = "0.15.3", features = [ ] }
