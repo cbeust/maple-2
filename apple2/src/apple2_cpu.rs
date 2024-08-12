@@ -329,7 +329,7 @@ impl AppleCpu {
             if status == CpuStateMsg::Running {
                 // Send CPU speed update
                 if self.last_speed_sent.elapsed().as_millis() > 1000 {
-                    send_message!(&self.sender, EmulatorSpeed(self.rolling_times.average()));
+                    send_message!(&self.sender, EmulatorSpeed(self.rolling_times.average() / 1.74));
                     self.last_speed_sent = Instant::now();
                 }
 

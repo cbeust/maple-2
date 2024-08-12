@@ -50,7 +50,7 @@ pub const FLASH_FREQUENCY_HZ: u8 = 4;
 
 /// Magnification of the screen
 pub(crate) const DEFAULT_MAGNIFICATION: u16 = 4;
-pub(crate) const DEFAULT_SPEED_HZ: u64 = 1_800_000;
+pub(crate) const DEFAULT_SPEED_HZ: u64 = 1_740_000;
 
 /// Disk controller: read bytes, bits, or use the LSS
 #[derive(PartialEq)]
