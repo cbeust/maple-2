@@ -25,6 +25,11 @@ pub(crate) const HIRES_WIDTH: u16 = 280;
 pub(crate) const HIRES_HEIGHT_MIXED: u16 = 160;
 pub(crate) const HIRES_HEIGHT: u16 = 192;
 
+pub const _FRAMES_PER_SECOND: usize = 50;
+pub const _CYCLES_PER_LINE: usize = 65;
+pub const _CYCLES_PER_FRAME: usize = 20280;
+
+
 ///
 /// Font sizes
 ///
@@ -62,7 +67,7 @@ pub(crate) const SPINNING_DOWN_CYCLES: u64 = 1_200_000;
 pub(crate) static START: OnceLock<Instant> = OnceLock::new();
 pub(crate) static SENDER_TO_UI: OnceLock<Sender<ToUi>> = OnceLock::new();
 pub(crate) static PC: RwLock<u16> = RwLock::new(0);
-pub(crate) static CYCLES: RwLock<u128> = RwLock::new(0);
+pub(crate) static CYCLES: RwLock<u64> = RwLock::new(0);
 pub(crate) fn pc() -> String {
     format!("{:04X}", *PC.read().unwrap())
 }

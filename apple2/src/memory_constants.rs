@@ -22,6 +22,9 @@ pub const EIGHTY_COLUMNS_OFF: u16 = 0xc00c;
 pub const EIGHTY_COLUMNS_ON: u16 = 0xc00d;
 pub const ALT_CHAR_OFF: u16 = 0xc00e;
 pub const ALT_CHAR_ON: u16 = 0xc00f;
+pub const BSR_BANK_2: u16 = 0xc011;
+/// 1=BSR active for read   0=$D000-$FFFF active (BSR = Bank Switch RAM)
+pub const BSR_READ_RAM: u16 = 0xc012;
 pub const ALT_CHAR_STATUS: u16 = 0xc01e;
 pub const EIGHTY_COLUMNS_STATUS: u16 = 0xc01f;
 pub const TEXT_OFF: u16 = 0xc050;

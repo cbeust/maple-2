@@ -16,6 +16,7 @@ mod macros;
 mod mini_fb;
 mod config_file;
 mod smartport;
+mod speaker;
 
 mod disk {
     pub mod disk_controller;
@@ -62,6 +63,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::process::exit;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 use cpu::cpu::Cpu;
@@ -88,6 +90,7 @@ use crate::disk::disk_info::DiskInfo;
 use crate::memory::{Apple2Memory};
 use crate::messages::*;
 use crate::messages::ToCpu::FileModified;
+use crate::speaker::{play_file_rodio, Speaker, Speaker2};
 use crate::ui::iced::message::InternalUiMessage;
 use crate::ui::iced::shared::Shared;
 // use crate::ui::ui_egui::{MyEguiApp};
@@ -105,6 +108,7 @@ use crate::ui::iced::ui_iced::main_iced;
 // }
 
 fn main() {
+    // START.set(Instant::now()).unwrap();
     start(true /* egui */);
     // start(false /* iced */);
 }
@@ -215,6 +219,14 @@ fn start(egui: bool) {
     log::info!("[Info] Logging");
     log::debug!("[Debug] Logging");
 
+    // if true {
+    if false {
+        let path = "c:\\t\\speaker-events.txt".to_string();
+        let path = "c:\\t\\pop.cycles.txt".to_string();
+        play_file_rodio(&path);
+        exit(0);
+    }
+
     //
     // Main emulator
     //
@@ -258,6 +270,13 @@ fn start(egui: bool) {
     } else {
         let sender4 = sender2.clone();
         let config_file_minifb = config_file.clone();
+
+        //
+        // Spawn the speaker thread
+        //
+        let _ = thread::Builder::new().name("Maple // - Speaker".to_string()).spawn(move || {
+            Speaker::run();
+        });
 
         //
         // Spawn the logging thread
@@ -314,7 +333,7 @@ fn start(egui: bool) {
         //
         // The file watcher thread
         //
-        if true {
+        if false {
             let config2 = config.copy();
             let sender3 = sender2.clone();
             let _ = thread::Builder::new().name("Maple // - File watcher".to_string()).spawn(move || {

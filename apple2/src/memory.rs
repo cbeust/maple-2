@@ -1,8 +1,10 @@
 use std::fs;
+use std::sync::RwLock;
+use std::time::Instant;
 use crossbeam::channel::Sender;
 pub use cpu::memory::{Memory, DefaultMemory};
 use crate::alog::alog;
-use crate::constants::PC;
+use crate::constants::{CYCLES, PC, START};
 use crate::disk::disk_controller::{DiskController};
 use crate::disk::disk_info::DiskInfo;
 use crate::debug::hex_dump_at;
@@ -12,7 +14,7 @@ use crate::messages::ToUi::RgbModeUpdate;
 use crate::roms::{DISK2_ROM, Roms, RomType, SMARTPORT_ROM};
 use crate::{send_message};
 use crate::smartport::SmartPort;
-use crate::ui::iced::shared::Shared;
+use crate::ui::iced::shared::{Shared, SpeakerEvent};
 
 const MAIN: usize = 0;
 const AUX: usize = 1;
@@ -289,7 +291,7 @@ impl Apple2Memory {
                     result = Some(0);
                 }
             }
-            0xc011 => {
+            BSR_BANK_2 => {
                 result = Some(if self.bank1 { 0 } else { 0x80 })
             }
             0xc019 => {
@@ -310,6 +312,12 @@ impl Apple2Memory {
 
             0xc030..=0xc03f => {
                 // alog(&format!("Speaker"));
+                let result = *CYCLES.read().unwrap();
+                let ts = START.get().unwrap().elapsed().as_micros() as u64;
+                Shared::add_speaker_event(SpeakerEvent {
+                    cycle:  result,
+                    timestamp: ts
+                });
             }
             0xc080..=0xc08f => {
                 // Language card

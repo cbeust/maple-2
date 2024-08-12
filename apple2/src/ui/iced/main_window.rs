@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use crossbeam::channel::Sender;
 use iced::widget::{Canvas};
 use iced::{Color, Element, keyboard, Length, Padding, Point, Rectangle, Renderer, Size, Theme};
@@ -25,6 +25,7 @@ use crate::ui::iced::keyboard::{special_named_key};
 use crate::ui::iced::message::{SpecialKeyMsg};
 use crate::ui::iced::shared::*;
 use crate::{InternalUiMessage, InternalUiMessage::*};
+use crate::speaker::{Samples, Speaker, Speaker2};
 
 pub struct MainWindow {
     config_file: ConfigFile,
@@ -49,6 +50,8 @@ pub struct MainWindow {
 
     // Drives window (true: show drives, false: show hard drives)
     pub show_drives: bool,
+
+    samples: Samples,
 }
 
 impl MainWindow {
@@ -70,6 +73,7 @@ impl MainWindow {
             cache: Default::default(),
             hires_screen: Default::default(),
             show_drives: Shared::get_hard_drive(0).is_none(),
+            samples: Samples::default(),
         };
         result.disks_tab.update(Init(config_file.clone()));
         result.nibbles_tab.update(Init(config_file.clone()));
@@ -97,6 +101,24 @@ impl MainWindow {
         }
         // println!("Read {} draw commands", self.draw_commands.len());
         // self.cache.clear();
+
+        // let se = Shared::get_speaker_events();
+        // println!("========== New speaker events");
+        // let b = ! se.is_empty();
+        // for e in se {
+        //     println!("{}", e.timestamp);
+        // }
+        // if b {
+        //     println!("Got events");
+        // }
+        let cycles: Vec<u64> = Shared::get_speaker_events().iter().map(|e| e.cycle).collect();
+        if ! cycles.is_empty() {
+            let samples = self.samples.cycles_to_samples(cycles, 44_100);
+            for s in samples {
+                Shared::add_sound_sample(s);
+            }
+            // Speaker2::play();
+        }
     }
 
     fn cpu(&self) -> CpuDumpMsg {

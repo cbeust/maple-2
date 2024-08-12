@@ -1,8 +1,13 @@
+use std::collections::VecDeque;
 use std::ops::DerefMut;
 use std::string::ToString;
-use std::sync::{RwLock, RwLockReadGuard};
+use std::sync::{Arc, Condvar, Mutex, RwLock, RwLockReadGuard};
+use std::time::{Duration, Instant};
+use cpal::Sample;
 use once_cell::sync::Lazy;
 use cpu::cpu::RunStatus;
+use crate::alog::alog;
+use crate::constants::PC;
 use crate::disk::disk_info::DiskInfo;
 use crate::messages::CpuDumpMsg;
 
@@ -36,6 +41,15 @@ struct CpuHolder {
 }
 
 static CPU: RwLock<Lazy<CpuHolder>> = RwLock::new(Lazy::new(|| CpuHolder { cpu: CpuDumpMsg::default() }));
+
+#[derive(Copy, Clone)]
+pub struct SpeakerEvent {
+    pub cycle: u64,
+    pub timestamp: u64,
+}
+
+static SPEAKER_EVENTS: RwLock<Vec<SpeakerEvent>> = RwLock::new(Vec::new());
+static SOUND_SAMPLES: RwLock<VecDeque<f32>> = RwLock::new(VecDeque::new());
 
 pub struct Shared;
 
@@ -109,4 +123,34 @@ impl Shared {
         HARD_DRIVES[drive_index].write().unwrap().deref_mut().disk_info = disk_info;
     }
 
+    pub fn add_speaker_event(event: SpeakerEvent) { SPEAKER_EVENTS.write().unwrap().push(event); }
+    pub fn get_speaker_events() -> Vec<SpeakerEvent> {
+        let result = SPEAKER_EVENTS.read().unwrap().clone();
+        SPEAKER_EVENTS.write().unwrap().clear();
+        result
+    }
+
+    pub fn get_next_sound_sample_maybe() -> Option<f32> {
+        SOUND_SAMPLES.write().unwrap().pop_front()
+    }
+
+    pub fn get_next_sound_sample() -> f32 {
+        let result = SOUND_SAMPLES.write().unwrap().pop_front().map_or(f32::EQUILIBRIUM, |v| v);
+        // let len = SOUND_SAMPLES.read().unwrap().len();
+        // if len == 0 && *PC.read().unwrap() < 0xf000 {
+        //     println!("RETURNING EQUILIBRIUM");
+        // }
+        // if len > 0 && *PC.read().unwrap() < 0xf000 && result > 0.0 {
+        //     alog(&format!("Returning sample {result}"));
+        // }
+        result
+    }
+
+    pub fn add_sound_sample(s: f32) {
+        // if *PC.read().unwrap() < 0xf000 && s > 0.0 {
+        //     alog(&format!("Adding sample {s}"));
+        // }
+        // println!("Adding sample {s}");
+        SOUND_SAMPLES.write().unwrap().push_back(s);
+    }
 }
