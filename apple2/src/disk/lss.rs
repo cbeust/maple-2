@@ -2,6 +2,12 @@ use rand::random;
 use crate::disk::disk::Disk;
 use crate::disk::drive::Drive;
 
+// It's 1one bit every 4 cpu cycles/8 lss cycles.  One nibble is between 32 and 40 cpu cycles
+// (64-80 lss cycles) usually, depending on the number of 0 sync bits.  As for the clearing
+// of the latch, it depends if the first two bits (post-optional-sync) are 10 or 11.
+// On 10 the latch is cleared 12 lss cycles after the first 1 (50% margin).
+// On 11 3 lss cycles after the second 1.
+
 /// Beneath Apple ProDOS - pages D-6 and D-7
 const P6: [u8; 256] = [
     //                Q7 L (Read)                                         Q7 H (Write)
