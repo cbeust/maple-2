@@ -80,6 +80,12 @@ use log::LevelFilter;
 use notify::{RecursiveMode};
 use notify_debouncer_mini::{DebouncedEventKind, new_debouncer};
 use serde::{Serialize};
+use tracing::{debug, Dispatch, event, info, Level, span};
+use tracing::instrument::WithSubscriber;
+use tracing_subscriber::{EnvFilter, fmt, Registry};
+use tracing_subscriber::fmt::{format, Subscriber};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 use cpu::config::{Config};
 use cpu::logging_thread::Logging;
 use crate::apple2_cpu::{AppleCpu, EmulatorConfigMsg};
@@ -107,10 +113,32 @@ use crate::ui::iced::ui_iced::main_iced;
 //         (address >= 0x7f8 && address <= 0x7ff)
 // }
 
+fn configure_tracing() {
+    // A layer that logs events to a file, using the JSON format.
+    let file = File::create("c:\\t\\speaker.txt").unwrap();
+    let file_log = fmt::layer()
+        .with_ansi(false)
+        .without_time()
+        .with_level(false)       // include levels in the output
+        .with_target(false)     // don't include event targets
+        .with_thread_ids(false)  // include thread IDs
+        .compact()             // use the compact format
+        .with_writer(Arc::new(file));
+
+    let subscriber = Registry::default()
+        .with(file_log)
+    ;
+    tracing::subscriber::set_global_default(subscriber);
+
+    // let _span = span!(Level::ERROR, "sound");
+    // let enter = _span.enter();
+    // event!(Level::DEBUG, answer = 42, "this is debug");
+    // debug!("This is the debug macro");
+}
 fn main() {
     // START.set(Instant::now()).unwrap();
-    start(true /* egui */);
-    // start(false /* iced */);
+    start();
+    // f();
 }
 
 #[derive(Parser)]
@@ -196,7 +224,8 @@ fn t() {
     }
 }
 
-fn start(egui: bool) {
+fn start() {
+    configure_tracing();
     let config_file = ConfigFile::new();
     let mut config = Config {
         emulator_speed_hz: config_file.emulator_speed_hz(),
@@ -223,6 +252,7 @@ fn start(egui: bool) {
     if false {
         let path = "c:\\t\\speaker-events.txt".to_string();
         let path = "c:\\t\\pop.cycles.txt".to_string();
+        let path = "c:\\t\\archon.cycles.txt".to_string();
         play_file_rodio(&path);
         exit(0);
     }

@@ -2,6 +2,7 @@ use std::fs;
 use std::sync::RwLock;
 use std::time::Instant;
 use crossbeam::channel::Sender;
+use tracing::{event, Level};
 pub use cpu::memory::{Memory, DefaultMemory};
 use crate::alog::alog;
 use crate::constants::{CYCLES, PC, START};
@@ -314,6 +315,10 @@ impl Apple2Memory {
                 // alog(&format!("Speaker"));
                 let result = *CYCLES.read().unwrap();
                 let ts = START.get().unwrap().elapsed().as_micros() as u64;
+                // if *PC.read().unwrap() < 0xf000 {
+                //     event!(Level::DEBUG, "{result}");
+                //     // alog(&format!("SOUND c:{result}"));
+                // }
                 Shared::add_speaker_event(SpeakerEvent {
                     cycle:  result,
                     timestamp: ts

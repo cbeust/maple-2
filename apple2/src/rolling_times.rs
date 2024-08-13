@@ -3,6 +3,7 @@
 struct CpuRun {
     start: u128,
     end: u128,
+    delta: u128,
     cycles: u128,
 }
 
@@ -19,7 +20,7 @@ impl RollingTimes {
     }
 
     pub fn add(&mut self, start: u128, end: u128, cycles: u128) {
-        self.times.push(CpuRun { start, end, cycles });
+        self.times.push(CpuRun { start, end, cycles, delta: end - start });
         if self.times.len() > 10 {
             self.times.remove(0);
         }
@@ -28,23 +29,19 @@ impl RollingTimes {
     /// Return the speed in Mhz
     pub fn average(&self) -> f32 {
         let mut total_cycles = 0_u128;
-        let mut s: u128 = 0;
-        let mut s_is_set = false;
-        let mut e: u128 = 0;
-        let mut e_is_set = false;
-        for CpuRun { start, end, cycles } in &self.times {
-            if ! s_is_set || *start < s {
-                s = *start;
-                s_is_set = true;
-            }
-            if ! e_is_set || *end > e {
-                e = *end;
-                e_is_set = true;
-            }
+        let mut s = u128::MAX;
+        let mut e = u128::MIN;
+        let mut total_delta = 0.0;
+        for CpuRun { start, end, cycles, delta } in &self.times {
+            // println!("  - Averaging slice {start}-{end} ({}) cycles:{cycles}", end - start);
+            if *start < s { s = *start; }
+            if *end > e { e = *end; }
+            total_delta += *delta as f32;
             total_cycles += cycles;
         }
 
-        let result = total_cycles as f32 / ((e - s) as f32 * 1000.0);
+        let result = total_cycles as f32 / total_delta / 1000.0;
+        // println!("Average: {result} e-s: {}", e-s);
         result
     }
 }

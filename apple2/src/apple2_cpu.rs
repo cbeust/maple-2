@@ -64,6 +64,7 @@ pub struct AppleCpu {
     start: Instant,
     started: bool,
     handle: Option<Handle>,
+    previous_slice_start: u128,
 }
 
 impl AppleCpu {
@@ -82,6 +83,7 @@ impl AppleCpu {
             started: false,
             config,
             handle,
+            previous_slice_start: START.get().unwrap().elapsed().as_millis(),
         }
     }
 
@@ -138,19 +140,15 @@ impl AppleCpu {
         1000 * self.emulator_period_cycles() / self.config.config.emulator_speed_hz
     }
 
-    pub fn steps(&mut self, debug_asm: bool) {
+    /// Advance the emulator by emulator_period_cycles() cycles (e.g. 100_000)
+    pub fn steps(&mut self, debug_asm: bool) -> u128 {
         let mut total_cycles: u128 = 0;
         let mut slice_cycles: u64 = 0;
         let mut stop = false;
 
-        let slice_start = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
-        // It's 1one bit every 4 cpu cycles/8 lss cycles.  One nibble is between 32 and 40 cpu cycles
-        // (64-80 lss cycles) usually, depending on the number of 0 sync bits.  As for the clearing
-        // of the latch, it depends if the first two bits (post-optional-sync) are 10 or 11.
-        // On 10 the latch is cleared 12 lss cycles after the first 1 (50% margin).
-        // On 11 3 lss cycles after the second 1.
-        while ! stop && slice_cycles < self.emulator_period_cycles() {
+        let epc = self.emulator_period_cycles();
+        while ! stop && slice_cycles < epc {
             self.step();
             stop = matches!(self.cpu.run_status, RunStatus::Stop(_, _));
             // println!("Advancing {} cycles", cy);
@@ -158,9 +156,8 @@ impl AppleCpu {
             slice_cycles += cy as u64;
             total_cycles += cy;
         }
-        self.rolling_times.add(slice_start,
-                               SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
-                               slice_cycles as u128);
+
+        total_cycles
     }
 
     /// Return true if we're rebooting, false if we're exiting
@@ -306,8 +303,11 @@ impl AppleCpu {
             */
             // Complete this slice
             let now = Instant::now().duration_since(start).as_millis();
+            let mut slice_cycles = 0;
             if status == CpuStateMsg::Running && now >= next_cpu_run {
-                self.steps(false);
+                let slice_start = START.get().unwrap().elapsed().as_millis();
+
+                slice_cycles = self.steps(false);
                 total_cycles += self.cpu.run_status.cycles();
                 status = to_cpu_state(&self.cpu.run_status, false);
                 // stop = matches!(run_status, RunStatus::Stop(_, _));
@@ -318,7 +318,11 @@ impl AppleCpu {
                     let next = (emulator_period_ms - elapsed) as u32;
                     next_cpu_run = now2 + next as u128;
                 }
+
+                self.rolling_times.add(self.previous_slice_start, slice_start, slice_cycles);
+                self.previous_slice_start = slice_start;
             }
+
 
             let elapsed = self.last_memory_sent.elapsed().as_millis();
             if elapsed > CPU_REFRESH_MS {
@@ -329,7 +333,7 @@ impl AppleCpu {
             if status == CpuStateMsg::Running {
                 // Send CPU speed update
                 if self.last_speed_sent.elapsed().as_millis() > 1000 {
-                    send_message!(&self.sender, EmulatorSpeed(self.rolling_times.average() / 1.74));
+                    send_message!(&self.sender, EmulatorSpeed(self.rolling_times.average()));
                     self.last_speed_sent = Instant::now();
                 }
 

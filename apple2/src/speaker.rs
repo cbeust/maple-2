@@ -127,6 +127,8 @@ pub struct Samples {
 impl Samples {
     /// cycles is guaranteed to not be empty
     pub fn cycles_to_samples(&mut self, cycles: Vec<u64>, sample_frequency: u64) -> Vec<f32> {
+        let max = 0.1;
+        let min = -0.1;
         let mut result: Vec<f32> = Vec::new();
         let cpu_frequency = 1_000_000;
         let sampling = cpu_frequency / sample_frequency;
@@ -140,17 +142,21 @@ impl Samples {
         }
         self.last_cycle = cycles[cycles.len() - 1];
         for i in intervals {
-            let sound_sample_count = i as f32 / sampling as f32;
             let value = if self.speaker_on {
-                0.1
+                max
             } else {
-                -0.1
+                min
             };
+            let mut sound_sample_count = i as f32 / sampling as f32;
+            if sound_sample_count < 1.0 { sound_sample_count = 1.0; }
             // alog(&format!("Interval: {i}, adding #{} of sample {}", sound_sample_count.round(), value));
-            for j in 0..sound_sample_count as usize {
-                result.push(value);
+            for _ in 0..sound_sample_count.round() as usize {
+                result.push(value as f32);
             }
-            self.speaker_on = ! self.speaker_on;
+            // Smooth the transition between the two extreme values
+            if ! result.is_empty() {
+                self.speaker_on = !self.speaker_on;
+            }
         }
 
         result
@@ -253,7 +259,8 @@ pub fn file_to_samples(path: &str) -> Vec<f32> {
 
     // println!("Samples: {} {}", samples[0], samples[1]);
 
-    Samples::default().cycles_to_samples(cycles, 44_100)
+    let speaker = Speaker::new();
+    Samples::default().cycles_to_samples(cycles, speaker.config.sample_rate.0.into())
 }
 
 
@@ -263,15 +270,15 @@ pub fn play_file_rodio(path: &str) {
         Shared::add_sound_sample(s);
     }
 
-    let (controller, mixer) = dynamic_mixer::mixer::<f32>(1, 44_100);
+    // let (controller, mixer) = dynamic_mixer::mixer::<f32>(1, 48_100);
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();
 
     let source = AStream{};
-    controller.add(source);
+    // controller.add(source);
 
     // Append the dynamic mixer to the sink to play a C major 6th chord.
-    sink.append(mixer);
+    sink.append(source); // mixer);
 
     // Sleep the thread until sink is empty.
     sink.sleep_until_end();
@@ -289,7 +296,7 @@ impl Source for AStream {
     }
 
     fn sample_rate(&self) -> u32 {
-        44_100
+        48_100
     }
 
     fn total_duration(&self) -> Option<Duration> {
