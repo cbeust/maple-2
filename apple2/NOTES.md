@@ -71,6 +71,50 @@ y trouverait sans doute bcp à redire !
 
 Les jeux à tester: Prince of Persia,  SeaDragon, Archon, Goonies, Bruce Lee...
 
+## Mockingboard
+
+https://gswv.apple2.org.za/a2zine/Docs/Mockingboard_MiniManual.html
+
+AY datasheet
+https://apple2infinitum.slack.com/files/U05RUNFFQMD/F07GKL84W1H/ay-3-8910-8912_feb-1979.pdf?origin_team=T1J8S1LGH&origin_channel=CABEM8JFK
+
+Ian Brumby
+When reading the schematic, one of the key things is to see where A0, A1, A2, A3 and A7 are mapped to (on the 6522's).
+A0, A1, A2, A3, A7 are the Apple II address lines. The Mockingboard is accessed (assuming slot 4) in $C400-$C407 or
+$C480-$C487. The $0-$7 are A0-A3 and the $80 is A7. Here you can see that it doesn't care about A4, A5, A6 for its
+decoding. You can see that it maps the low 4 bits to RS0-RS3 on the 6522's. And A7 controls which 6522 is used.
+The schematic (GarberStreet Mockingboard Clone) maps the left 6522's IRQ to the Apple II's IRQ. It maps the right 6522's
+IRQ to the Apple II's NMI. Note that this is not "correct" (not what most Mockingboards do). The updated Mockingboard
+clone that ReactiveMicro sells has fixed this (maps both to Apple II IRQ).
+Use mb-audit (https://github.com/tomcw/mb-audit) to test your code when you are far enough along.
+Note that a lot of Mockingboard software use a similar auto-detection routine, which uses the 6522's timers to determine
+if there is a Mockingboard in the system. You may choose to start with implementing the 6522's timers first because if
+this check fails then the software will assume there is no Mockingboard in your system.
+
+ct6502
+Yes, agree with everything that @Ian Brumby
+says. One minor note is that I tried testing with mb-audit but still don’t completely pass all of the tests. I think
+there are a lot of subtle tests, especially of the 6522. My emulator seems to work with all Mockingboard software out
+there, so I’m not super worried. I would like to go back and fix it so it passes all the tests. I would say don’t go to
+heroic lengths when you’re first developing Mockingboard support to try to make all of those tests pass - just circle
+back later once you’ve got music + sound effects working properly.
+
+rikkles
+If you'd like, take a look at my implementation. I don't have the interrupts (handled by the physical bus card) but I have all the logic of the Mockingboard in 400 lines of C++. This includes the UI component and the de/serialization. The core of it is maybe 80 lines.
+The AY code (also C++, adapted from the Peter Sovietov C codebase) is independent.
+https://github.com/hasseily/SuperDuperDisplay/blob/main/MockingboardManager.cpp
+
+Samir Sinha
+I'll post my implementation as well (tried to reference my sources in the code.)   But it currently only works for a few
+titles. And it doesn't pass the most recent mbaudit.
+https://github.com/samkusin/clemens_iigs/blob/main/devices/mockingboard.c
+
+Brendan
+The hardest part about implementing Mockingboard (other than adding interrupts to your emulator, etc) is the timers, and
+making sure the cycle accuracy of the timers is in lock-step with the CPU. This is because mockingboard detection on
+several games is based on turning on the timer, waiting a few cycles, and then reading the timer looking for a specific
+value to be present, which is an indicator that there is a VIA running at that location and therefore it is a
+mockingboard (or compatible)
 
 ## List of WOZ disks that require FLUX support
 
