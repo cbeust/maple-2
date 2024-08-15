@@ -12,7 +12,7 @@ use iced_aw::Tabs;
 use crate::config_file::ConfigFile;
 use crate::ui::iced::tab::Tab;
 use crate::ui::iced::style::{m_button, MColor};
-use crate::constants::{CPU_REFRESH_MS, HIRES_HEIGHT, HIRES_WIDTH};
+use crate::constants::{CPU_REFRESH_MS, HIRES_HEIGHT, HIRES_WIDTH, SAMPLE_RATE};
 use crate::disk::drive::DriveStatus;
 use crate::messages::{CpuDumpMsg, DrawCommand, SetMemoryMsg, ToCpu, ToMiniFb};
 use crate::ui::hires_screen::{AColor, HiresScreen};
@@ -25,7 +25,7 @@ use crate::ui::iced::keyboard::{special_named_key};
 use crate::ui::iced::message::{SpecialKeyMsg};
 use crate::ui::iced::shared::*;
 use crate::{InternalUiMessage, InternalUiMessage::*};
-use crate::speaker::{Samples, Speaker, Speaker2};
+use crate::speaker::{play_rodio, Samples, Speaker, Speaker2};
 
 pub struct MainWindow {
     config_file: ConfigFile,
@@ -113,11 +113,10 @@ impl MainWindow {
         // }
         let cycles: Vec<u64> = Shared::get_speaker_events().iter().map(|e| e.cycle).collect();
         if ! cycles.is_empty() {
-            let samples = self.samples.cycles_to_samples(cycles, 44_100);
+            let samples = self.samples.cycles_to_samples(cycles, SAMPLE_RATE);
             for s in samples {
                 Shared::add_sound_sample(s);
             }
-            // Speaker2::play();
         }
     }
 

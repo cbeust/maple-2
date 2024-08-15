@@ -58,6 +58,9 @@ pub(crate) enum NibbleStrategy { Bytes, Bits, Lss }
 pub(crate) const NIBBLE_STRATEGY: NibbleStrategy = NibbleStrategy::Lss;
 pub(crate) const HOLD: u16 = 81;
 
+/// Sound
+pub const SAMPLE_RATE: u32 = 48_000;
+
 /// How many cycles to wait between the time when the motor is turned off
 /// and when it actually turns off
 pub(crate) const SPINNING_DOWN_CYCLES: u64 = 1_200_000;

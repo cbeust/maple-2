@@ -1,15 +1,14 @@
-use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use cpal::{Device, FromSample, Sample, Stream, StreamConfig, traits::{DeviceTrait, HostTrait, StreamTrait}};
-use itertools::Itertools;
-use rodio::{dynamic_mixer, OutputStream, Sink, Source};
-use crate::alog::alog;
+// use cpal::{Device, FromSample, Sample, Stream, StreamConfig, traits::{DeviceTrait, HostTrait, StreamTrait}};
+use rodio::{OutputStream, Sink, Source};
+use rodio::source::SineWave;
+use splines::{Interpolation, Key, Spline};
 
+use crate::constants::SAMPLE_RATE;
 use crate::ui::iced::shared::Shared;
 
 pub struct Speaker2 {
@@ -126,13 +125,13 @@ pub struct Samples {
 
 impl Samples {
     /// cycles is guaranteed to not be empty
-    pub fn cycles_to_samples(&mut self, cycles: Vec<u64>, sample_frequency: u64) -> Vec<f32> {
+    pub fn cycles_to_samples(&mut self, cycles: Vec<u64>, sample_rate: u32) -> Vec<f32> {
         let max = 0.1;
         let min = -0.1;
         let mut result: Vec<f32> = Vec::new();
         let cpu_frequency = 1_000_000;
-        let sampling = cpu_frequency / sample_frequency;
-        if self.last_cycle == 0 || (cycles[0] - self.last_cycle) > 1_000_000 {
+        let sampling = cpu_frequency / sample_rate;
+        if self.last_cycle == 0 || (cycles[0] - self.last_cycle) > 250_000 {
             self.last_cycle = cycles[0];
         }
         let mut intervals: Vec<u64> = Vec::new();
@@ -165,86 +164,19 @@ impl Samples {
 }
 
 pub struct Speaker {
-    // speaker_on: bool,
-    // device: Device,
-    // config: SupportedStreamConfig,
-    // channels: usize,
-    pub config: StreamConfig,
-    pub device: Device,
-    pub channels: usize,
     last_sample: f32,
-
-    /// The last time we detected an access to C03X
-    stream: Stream,
 }
 
 impl Speaker {
     pub fn run() {
-        let speaker = Speaker::new();
-        speaker.stream.play().unwrap();
-
         loop {
-            thread::sleep(Duration::from_millis(100));
-        }
-    }
-
-    fn new() -> Self {
-        let host = cpal::default_host();
-        let device = host.default_output_device().unwrap();
-        let config = device.default_output_config().unwrap();
-        let channels = config.channels() as usize;
-
-        // println!("Default output config: {:?}, sample rate: {sample_rate}", config);
-
-        // let stream = device.build_output_stream(&config.into(), write_silence, err_fn, None).unwrap();
-        let config: StreamConfig = config.clone().into();
-
-        let mut next_value_2 = move || -> f32 {
-            Shared::get_next_sound_sample()
-        };
-
-        let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
-        let stream = device.build_output_stream(
-            &config,
-            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                Self::write_data(data, channels, &mut next_value_2)
-            },
-            err_fn,
-            None,
-        ).unwrap();
-
-        Self {
-            last_sample: 0.0,
-            device, config, channels, stream,
-
-        }
-    }
-
-    pub fn play_file(&mut self, path: &str) {
-        let samples = file_to_samples(path);
-        for s in samples {
-            Shared::add_sound_sample(s);
-        }
-        println!("Playing file {path}");
-        self.stream.play().unwrap();
-        thread::sleep(Duration::from_millis(5_000));
-    }
-
-    fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> f32)
-        where
-            T: Sample + FromSample<f32>,
-    {
-        for frame in output.chunks_mut(channels) {
-            let s = next_sample();
-            let value: T = T::from_sample(s);
-            for sample in frame.iter_mut() {
-                *sample = value;
-            }
+            if Shared::has_samples() { play_rodio(); }
+            thread::sleep(Duration::from_millis(40));
         }
     }
 }
 
-pub fn file_to_samples(path: &str) -> Vec<f32> {
+pub fn file_to_samples(path: &str, sample_rate: u32) -> Vec<f32> {
     let file = File::open(path).unwrap();
     let reader = BufReader::new(file);
     let mut cycles: Vec<u64> = Vec::new();
@@ -259,13 +191,38 @@ pub fn file_to_samples(path: &str) -> Vec<f32> {
 
     // println!("Samples: {} {}", samples[0], samples[1]);
 
-    let speaker = Speaker::new();
-    Samples::default().cycles_to_samples(cycles, speaker.config.sample_rate.0.into())
+    Samples::default().cycles_to_samples(cycles, sample_rate)
 }
 
+pub fn play_rodio() {
+    let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+    let sink = Sink::try_new(&stream_handle).unwrap();
+
+    let source = AStream{};
+    // controller.add(source);
+
+    // Append the dynamic mixer to the sink to play a C major 6th chord.
+    sink.append(source); // mixer);
+
+    // Sleep the thread until sink is empty.
+    sink.sleep_until_end();
+}
 
 pub fn play_file_rodio(path: &str) {
-    let samples = file_to_samples(path);
+    let s = SineWave::new(400.0)
+        ;
+    let start = Key::new(0., 0., Interpolation::Cosine);
+    let end = Key::new(1., 10., Interpolation::default());
+    let spline = Spline::from_vec(vec![start, end]);
+
+    // generate and print 21 values with equal distances
+    // that is: 0.0, 0.05, 0.10, ..., 0.95, 1.00
+    for i in 0..10 {
+        println!("value: {:?}", spline.sample(i as f32 / 10.0))
+    }
+
+
+    let samples = file_to_samples(path, SAMPLE_RATE);
     for s in samples {
         Shared::add_sound_sample(s);
     }
@@ -282,7 +239,6 @@ pub fn play_file_rodio(path: &str) {
 
     // Sleep the thread until sink is empty.
     sink.sleep_until_end();
-
 }
 
 struct AStream {}
@@ -296,7 +252,7 @@ impl Source for AStream {
     }
 
     fn sample_rate(&self) -> u32 {
-        48_100
+        SAMPLE_RATE
     }
 
     fn total_duration(&self) -> Option<Duration> {

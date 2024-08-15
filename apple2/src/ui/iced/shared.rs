@@ -1,13 +1,12 @@
 use std::collections::VecDeque;
 use std::ops::DerefMut;
 use std::string::ToString;
-use std::sync::{Arc, Condvar, Mutex, RwLock, RwLockReadGuard};
-use std::time::{Duration, Instant};
-use cpal::Sample;
+use std::sync::RwLock;
+
 use once_cell::sync::Lazy;
+
 use cpu::cpu::RunStatus;
-use crate::alog::alog;
-use crate::constants::PC;
+
 use crate::disk::disk_info::DiskInfo;
 use crate::messages::CpuDumpMsg;
 
@@ -134,23 +133,11 @@ impl Shared {
         SOUND_SAMPLES.write().unwrap().pop_front()
     }
 
-    pub fn get_next_sound_sample() -> f32 {
-        let result = SOUND_SAMPLES.write().unwrap().pop_front().map_or(f32::EQUILIBRIUM, |v| v);
-        // let len = SOUND_SAMPLES.read().unwrap().len();
-        // if len == 0 && *PC.read().unwrap() < 0xf000 {
-        //     println!("RETURNING EQUILIBRIUM");
-        // }
-        // if len > 0 && *PC.read().unwrap() < 0xf000 && result > 0.0 {
-        //     alog(&format!("Returning sample {result}"));
-        // }
-        result
+    pub fn has_samples() -> bool {
+        ! SOUND_SAMPLES.read().unwrap().is_empty()
     }
 
     pub fn add_sound_sample(s: f32) {
-        // if *PC.read().unwrap() < 0xf000 && s > 0.0 {
-        //     alog(&format!("Adding sample {s}"));
-        // }
-        // println!("Adding sample {s}");
         SOUND_SAMPLES.write().unwrap().push_back(s);
     }
 }
