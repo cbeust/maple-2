@@ -151,7 +151,7 @@ impl EmulatorApp {
             ui_log(&format!("Loading {drive_type}drive {drive_index} with {path}"));
             let disk_info = DiskInfo::n(&path);
             if let Some(ref mut w) = &mut self.main_window {
-                w.show_drives = ! is_hard_drive;
+                Shared::set_show_drives(! is_hard_drive);
             }
             send_message!(&self.sender, LoadDisk(is_hard_drive, drive_index, disk_info));
         };

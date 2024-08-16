@@ -199,7 +199,7 @@ impl Apple2Memory {
         // let bytes2 = include_bytes!("c:\\Users\\Ced\\Downloads\\hddrvr-v2.bin");
         // let bytes = include_bytes!("c:\\Users\\Ced\\Downloads\\HDDRVR.BIN");
         // self.load_bytes(bytes, 0xc700, 0 /* skip */, 0x100, false /* aux mem */);
-        if Shared::get_hard_drive(0).is_some() {
+        if ! Shared::get_show_drives() && Shared::get_hard_drive(0).is_some() {
             self.load_bytes(&SMARTPORT_ROM, 0xc700, 0 /* skip */, 0x100, false /* aux mem */);
         }
     }

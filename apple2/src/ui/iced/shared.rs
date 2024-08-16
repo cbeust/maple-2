@@ -49,6 +49,7 @@ pub struct SpeakerEvent {
 
 static SPEAKER_EVENTS: RwLock<Vec<SpeakerEvent>> = RwLock::new(Vec::new());
 static SOUND_SAMPLES: RwLock<VecDeque<f32>> = RwLock::new(VecDeque::new());
+static SHOW_DRIVES: RwLock<bool> = RwLock::new(true);
 
 pub struct Shared;
 
@@ -139,5 +140,13 @@ impl Shared {
 
     pub fn add_sound_sample(s: f32) {
         SOUND_SAMPLES.write().unwrap().push_back(s);
+    }
+
+    pub fn get_show_drives() -> bool {
+        *SHOW_DRIVES.read().unwrap()
+    }
+
+    pub fn set_show_drives(b: bool) {
+        *SHOW_DRIVES.write().unwrap() = b;
     }
 }

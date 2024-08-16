@@ -48,9 +48,6 @@ pub struct MainWindow {
     draw_commands: Vec<DrawCommand>,
     hires_screen: HiresScreen,
 
-    // Drives window (true: show drives, false: show hard drives)
-    pub show_drives: bool,
-
     samples: Samples,
 }
 
@@ -72,7 +69,6 @@ impl MainWindow {
             drive_tab: Default::default(),
             cache: Default::default(),
             hires_screen: Default::default(),
-            show_drives: Shared::get_hard_drive(0).is_none(),
             samples: Samples::default(),
         };
         result.disks_tab.update(Init(config_file.clone()));
@@ -144,9 +140,11 @@ impl Window for MainWindow {
             .push(m_button("Swap", InternalUiMessage::Swap))
             .padding(Padding::from([0.0, 10.0, 0.0, 10.0]))
             .push(Space::with_height(5.0))
-            .push(m_button("Drives", ShowDrives))
-            .push(Space::with_height(5.0))
-            .push(m_button("HD", ShowHardDrives))
+            .push(if Shared::get_show_drives() {
+                m_button("HD", ShowHardDrives)
+            } else {
+                m_button("Drives", ShowDrives)
+            })
         );
 
         let tabs: Element<'_, InternalUiMessage> = Tabs::new(InternalUiMessage::TabSelected)
@@ -223,12 +221,10 @@ impl Window for MainWindow {
                 self.selected_drive = drive;
             }
             ShowDrives => {
-                println!("Showing drives");
-                self.show_drives = true;
+                Shared::set_show_drives(true);
             }
             ShowHardDrives => {
-                println!("Showing hard drives");
-                self.show_drives = false;
+                Shared::set_show_drives(false);
             }
             Eject(is_hard_drive, drive_number) => {
                 if is_hard_drive {

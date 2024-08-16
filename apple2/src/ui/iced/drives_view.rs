@@ -10,7 +10,7 @@ use crate::ui::iced::style::{m_group, MColor};
 
 impl MainWindow {
     pub fn drives_window(&self) -> Container<InternalUiMessage> {
-        container(if self.show_drives { self.floppies() } else { self.hard_drives() })
+        container(if Shared::get_show_drives() { self.floppies() } else { self.hard_drives() })
     }
 
     fn hard_drives(&self) -> Element<InternalUiMessage> {
