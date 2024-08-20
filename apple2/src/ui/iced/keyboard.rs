@@ -57,8 +57,8 @@ fn character_key(s: SmolStr, shift: bool, control: bool) -> Option<u8> {
             0x35 => { Some(if shift { 0xa5 } else { n + 0x80 }) } // 5 %
             0x36 => { Some(if shift { 0xa6 } else { n + 0x80 }) } // 6 &
             0x37 => { Some(if shift { 0xa7 } else { n + 0x80 }) } // 7 '
-            0x38 => { Some(if shift { 0xa8 } else { n + 0x80 }) } // 8 (
-            0x39 => { Some(if shift { 0xa9 } else { n + 0x80 }) } // 9 )
+            0x38 => { Some(if shift { 0xaa } else { n + 0x80 }) } // 8 *
+            0x39 => { Some(if shift { 0xa8 } else { n + 0x80 }) } // 9 (
             _ => { None }
         }
     }

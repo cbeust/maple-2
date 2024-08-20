@@ -17,6 +17,7 @@ mod mini_fb;
 mod config_file;
 mod smartport;
 mod speaker;
+mod joystick;
 
 mod disk {
     pub mod disk_controller;
@@ -52,6 +53,7 @@ mod ui {
         pub mod shared;
         mod disk_tab;
         mod drives_view;
+        mod debug_tab;
     }
 }
 
@@ -70,13 +72,15 @@ use cpu::cpu::Cpu;
 use cpu::memory::Memory;
 use messages::ToUi;
 use clap::Parser;
+use gilrs::{Axis, Button, Event, Gilrs};
+use gilrs::ev::state::AxisData;
 use log4rs::append::Append;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Handle;
-use log::LevelFilter;
+use log::{LevelFilter, warn};
 use notify::{RecursiveMode};
 use notify_debouncer_mini::{DebouncedEventKind, new_debouncer};
 use serde::{Serialize};
@@ -93,6 +97,7 @@ use crate::config_file::ConfigFile;
 use crate::constants::*;
 use crate::disk::disk::Disk;
 use crate::disk::disk_info::DiskInfo;
+use crate::joystick::Joystick;
 use crate::memory::{Apple2Memory};
 use crate::messages::*;
 use crate::messages::ToCpu::FileModified;
@@ -186,7 +191,7 @@ pub fn configure_log(config: &Config, remove: bool) -> log4rs::Config {
         .appender(Appender::builder().build(appender_name, appender))
         .build(Root::builder()
             .appender(appender_name)
-            .build(LevelFilter::Info))
+            .build(LevelFilter::Error))
         .unwrap()
 }
 
@@ -224,8 +229,40 @@ fn t() {
     }
 }
 
+fn controller() {
+    let mut active_gamepad = None;
+
+    let mut gilrs = Gilrs::new().unwrap();
+    loop {
+        while let Some(gilrs::Event { id, event, time }) = gilrs.next_event() {
+            println!("{:?} New event from {}: {:?}", time, id, event);
+            active_gamepad = Some(id);
+        }
+
+        if active_gamepad.is_none() {
+            println!("Couldn't detect an active gamepad");
+        } else {
+            if let Some(gamepad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
+                match gamepad.axis_data(Axis::LeftStickX) {
+                    None => {
+                        println!("Couldn't read axis data");
+                    }
+                    Some(x) => {
+                        println!("x: {}", x.value());
+                        println!("");
+                    }
+                }
+            }
+        }
+    }
+    exit(0);
+}
+
 fn start() {
+    // controller();
+
     configure_tracing();
+
     let config_file = ConfigFile::new();
     let mut config = Config {
         emulator_speed_hz: config_file.emulator_speed_hz(),
@@ -245,6 +282,7 @@ fn start() {
 
     START.set(Instant::now()).unwrap();
 
+    warn!("This is a warning");
     log::info!("[Info] Logging");
     log::debug!("[Debug] Logging");
 
@@ -305,7 +343,14 @@ fn start() {
         // Spawn the speaker thread
         //
         let _ = thread::Builder::new().name("Maple // - Speaker".to_string()).spawn(move || {
-            Speaker::run();
+            Speaker::new().run();
+        });
+
+        //
+        // Spawn the controller thread
+        //
+        let _ = thread::Builder::new().name("Maple // - Controller".to_string()).spawn(move || {
+            Joystick::default().run();
         });
 
         //

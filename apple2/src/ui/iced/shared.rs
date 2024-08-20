@@ -1,13 +1,15 @@
 use std::collections::VecDeque;
 use std::ops::DerefMut;
 use std::string::ToString;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
+use std::time::Instant;
 
 use once_cell::sync::Lazy;
 
 use cpu::cpu::RunStatus;
 
 use crate::disk::disk_info::DiskInfo;
+use crate::joystick::Joystick;
 use crate::messages::CpuDumpMsg;
 
 #[derive(Default)]
@@ -49,7 +51,18 @@ pub struct SpeakerEvent {
 
 static SPEAKER_EVENTS: RwLock<Vec<SpeakerEvent>> = RwLock::new(Vec::new());
 static SOUND_SAMPLES: RwLock<VecDeque<f32>> = RwLock::new(VecDeque::new());
+static LAST_SAMPLE_PLAYED: RwLock<Option<(Instant, f32)>> = RwLock::new(None);
 static SHOW_DRIVES: RwLock<bool> = RwLock::new(true);
+
+#[derive(Default)]
+struct SharedJoystick {
+    reset: [u64; 4],
+    values: [u8; 4],
+    buttons: [bool; 4],
+}
+
+static JOYSTICK: RwLock<Lazy<Joystick>> = RwLock::new(Lazy::new(|| Joystick::default()));
+static SHARED_JOYSTICK: RwLock<Lazy<SharedJoystick>> = RwLock::new(Lazy::new(|| SharedJoystick::default()));
 
 pub struct Shared;
 
@@ -142,11 +155,43 @@ impl Shared {
         SOUND_SAMPLES.write().unwrap().push_back(s);
     }
 
+    pub fn set_last_sample_played(s: Option<(Instant, f32)>) {
+        *LAST_SAMPLE_PLAYED.write().unwrap() = s;
+    }
+
+    pub fn get_last_sample_played() -> Option<(Instant, f32)>{
+        *LAST_SAMPLE_PLAYED.read().unwrap()
+    }
+
     pub fn get_show_drives() -> bool {
         *SHOW_DRIVES.read().unwrap()
     }
 
     pub fn set_show_drives(b: bool) {
         *SHOW_DRIVES.write().unwrap() = b;
+    }
+
+    pub fn reset_joystick(cycle: u64) {
+        JOYSTICK.write().unwrap().reset_cycles(cycle);
+    }
+
+    pub fn get_controller_value(index: usize, cycle: u64) -> u8 {
+        JOYSTICK.write().unwrap().get_value_for_paddle(index, cycle)
+    }
+
+    pub fn update_controller_raw_values(values: [u8; 4]) {
+        SHARED_JOYSTICK.write().unwrap().values = values;
+    }
+
+    pub fn get_controller_raw_values() -> [u8; 4] {
+        SHARED_JOYSTICK.read().unwrap().values.clone()
+    }
+
+    pub fn get_controller_button_value(index: usize) -> bool {
+        SHARED_JOYSTICK.read().unwrap().buttons[index]
+    }
+
+    pub fn set_controller_button_value(index: usize, v: bool) {
+        SHARED_JOYSTICK.write().unwrap().buttons[index] = v;
     }
 }

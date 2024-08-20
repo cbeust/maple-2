@@ -1,14 +1,14 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 // use cpal::{Device, FromSample, Sample, Stream, StreamConfig, traits::{DeviceTrait, HostTrait, StreamTrait}};
 use rodio::{OutputStream, Sink, Source};
 use rodio::source::SineWave;
 use splines::{Interpolation, Key, Spline};
 
-use crate::constants::SAMPLE_RATE;
+use crate::constants::{SAMPLE_RATE, START};
 use crate::ui::iced::shared::Shared;
 
 pub struct Speaker2 {
@@ -163,16 +163,52 @@ impl Samples {
 
 }
 
+/// We want to go from s to 0.0 smoothly
+pub fn speaker_decay(s: f32) {
+    let rate = 100.0;
+    let increment = -s / rate;
+    let mut decay = s;
+    for _ in 0..rate as usize {
+        decay += increment;
+        if f32::abs(decay) > 0.1 {
+            println!("Decay is too big");
+        }
+        println!("Adding decay {decay}");
+        Shared::add_sound_sample(decay);
+    }
+    Shared::add_sound_sample(0.0);
+}
+
 pub struct Speaker {
-    last_sample: f32,
 }
 
 impl Speaker {
-    pub fn run() {
+    pub fn new() -> Self {
+
+        // let source = AStream::default();
+        // controller.add(source);
+
+        Self {
+        }
+    }
+
+    pub fn run(&self) {
         loop {
-            if Shared::has_samples() { play_rodio(); }
+            self.play_rodio();
             thread::sleep(Duration::from_millis(40));
         }
+    }
+
+    pub fn play_rodio(&self) {
+        let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+        let sink = Sink::try_new(&stream_handle).unwrap();
+
+        // Append the dynamic mixer to the sink to play a C major 6th chord.
+        let stream = AStream::default();
+        sink.append(stream); // mixer);
+
+        // Sleep the thread until sink is empty.
+        sink.sleep_until_end();
     }
 }
 
@@ -192,20 +228,6 @@ pub fn file_to_samples(path: &str, sample_rate: u32) -> Vec<f32> {
     // println!("Samples: {} {}", samples[0], samples[1]);
 
     Samples::default().cycles_to_samples(cycles, sample_rate)
-}
-
-pub fn play_rodio() {
-    let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-    let sink = Sink::try_new(&stream_handle).unwrap();
-
-    let source = AStream{};
-    // controller.add(source);
-
-    // Append the dynamic mixer to the sink to play a C major 6th chord.
-    sink.append(source); // mixer);
-
-    // Sleep the thread until sink is empty.
-    sink.sleep_until_end();
 }
 
 pub fn play_file_rodio(path: &str) {
@@ -231,7 +253,7 @@ pub fn play_file_rodio(path: &str) {
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();
 
-    let source = AStream{};
+    let source = AStream::default();
     // controller.add(source);
 
     // Append the dynamic mixer to the sink to play a C major 6th chord.
@@ -241,7 +263,18 @@ pub fn play_file_rodio(path: &str) {
     sink.sleep_until_end();
 }
 
-struct AStream {}
+struct AStream {
+    last_sample: f32,
+    last_sample_time: Instant,
+    volume: f32,
+}
+
+impl Default for AStream {
+    fn default() -> Self {
+        Self { last_sample: 0.0, last_sample_time: Instant::now(), volume: 1.0 }
+    }
+}
+
 impl Source for AStream {
     fn current_frame_len(&self) -> Option<usize> {
         None
@@ -264,7 +297,29 @@ impl Iterator for AStream {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if let Some((i, s)) = Shared::get_last_sample_played() {
+            if (f32::abs(s) > 0.01 && i.elapsed().as_millis() > 250) || self.volume < 1.0{
+                // self.volume /= 2.0;
+                // println!("SILENCE, volume is {}", self.volume);
+                // speaker_decay(s);
+                // Shared::set_last_sample_played(None);
+            }
+        }
+
         // println!(" RETURNING NEXT");
-        Shared::get_next_sound_sample_maybe()
+        match Shared::get_next_sound_sample_maybe() {
+            None => {
+                None
+            }
+            Some(s) => {
+                self.last_sample_time = Instant::now();
+                if s != 0.0 {
+                    let s2 = s * self.volume;
+                    self.last_sample = s2;
+                    Shared::set_last_sample_played(Some((Instant::now(), s2)));
+                }
+                Some(s)
+            }
+        }
     }
 }

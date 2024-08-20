@@ -1,31 +1,75 @@
-use std::time::{Duration, Instant};
+use std::process::exit;
+use std::time::Instant;
+
 use crossbeam::channel::Sender;
-use iced::widget::{Canvas};
+use gilrs::{Axis, Button, Gilrs};
 use iced::{Color, Element, keyboard, Length, Padding, Point, Rectangle, Renderer, Size, Theme};
 use iced::keyboard::Key::Named;
-use iced::widget::{container, Space};
-use iced::widget::{row, Row, Column};
 use iced::mouse::Cursor;
+use iced::widget::{container, Space};
+use iced::widget::{Column, row, Row};
 use iced::widget::button::danger;
+use iced::widget::Canvas;
 use iced::widget::canvas::{Cache, Event, event, Fill, Geometry, Path, Program};
 use iced_aw::Tabs;
+
+use crate::{InternalUiMessage, InternalUiMessage::*};
 use crate::config_file::ConfigFile;
-use crate::ui::iced::tab::Tab;
-use crate::ui::iced::style::{m_button, MColor};
 use crate::constants::{CPU_REFRESH_MS, HIRES_HEIGHT, HIRES_WIDTH, SAMPLE_RATE};
 use crate::disk::drive::DriveStatus;
+use crate::joystick::Joystick;
 use crate::messages::{CpuDumpMsg, DrawCommand, SetMemoryMsg, ToCpu, ToMiniFb};
+use crate::send_message;
+use crate::speaker::{speaker_decay, Samples};
 use crate::ui::hires_screen::{AColor, HiresScreen};
-use crate::ui::iced::disks_tab::DisksTab;
-use crate::ui::iced::nibbles_tab::NibblesTab;
-use crate::ui::iced::ui_iced::{TabId, Window};
-use crate::{send_message};
+use crate::ui::iced::debug_tab::DebugTab;
 use crate::ui::iced::disk_tab::DriveTab;
-use crate::ui::iced::keyboard::{special_named_key};
-use crate::ui::iced::message::{SpecialKeyMsg};
+use crate::ui::iced::disks_tab::DisksTab;
+use crate::ui::iced::keyboard::special_named_key;
+use crate::ui::iced::message::SpecialKeyMsg;
+use crate::ui::iced::nibbles_tab::NibblesTab;
 use crate::ui::iced::shared::*;
-use crate::{InternalUiMessage, InternalUiMessage::*};
-use crate::speaker::{play_rodio, Samples, Speaker, Speaker2};
+use crate::ui::iced::style::{m_button, MColor};
+use crate::ui::iced::tab::Tab;
+use crate::ui::iced::ui_iced::{TabId, Window};
+
+
+fn controller() {
+    let mut gilrs = Gilrs::new().unwrap();
+
+// Iterate over all connected gamepads
+    for (_id, gamepad) in gilrs.gamepads() {
+        println!("{} is {:?}", gamepad.name(), gamepad.power_info());
+    }
+
+    let mut active_gamepad = None;
+
+    loop {
+        // Examine new events
+        while let Some(gilrs::Event { id, event, time }) = gilrs.next_event() {
+            println!("{:?} New event from {}: {:?}", time, id, event);
+            active_gamepad = Some(id);
+        }
+
+        // You can also use cached gamepad state
+        if let Some(gamepad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
+            // println!("Found current gamepad: {:#?}", gamepad);
+            if gamepad.is_pressed(Button::South) {
+                println!("Button South is pressed (XBox - A, PS - X)");
+            }
+            let x = gamepad.value(Axis::RightStickX);
+            if x > 0. {
+                println!("RightStickX: {}", x);
+            }
+            // let gamepad_state = gamepad.state();
+            // for (code, button_data) in gamepad_state.buttons() {
+            //     println!("Code: {:#?} button_data: {:#?}", code, button_data);
+            // }
+        }
+    }
+    exit(0);
+}
+
 
 pub struct MainWindow {
     config_file: ConfigFile,
@@ -40,6 +84,7 @@ pub struct MainWindow {
     disks_tab: DisksTab,
     nibbles_tab: NibblesTab,
     drive_tab: DriveTab,
+    debug_tab: DebugTab,
 
     drive_statuses: [DriveStatus; 2],
 
@@ -49,6 +94,7 @@ pub struct MainWindow {
     hires_screen: HiresScreen,
 
     samples: Samples,
+    joystick: Joystick,
 }
 
 impl MainWindow {
@@ -67,9 +113,11 @@ impl MainWindow {
             disks_tab: Default::default(),
             nibbles_tab: Default::default(),
             drive_tab: Default::default(),
+            debug_tab: Default::default(),
             cache: Default::default(),
             hires_screen: Default::default(),
             samples: Samples::default(),
+            joystick: Joystick::default(),
         };
         result.disks_tab.update(Init(config_file.clone()));
         result.nibbles_tab.update(Init(config_file.clone()));
@@ -78,35 +126,25 @@ impl MainWindow {
     }
 
     fn update_context(&mut self) {
-        // if matches!(cpu.run_status, RunStatus::Stop(_, _)) {
-        //     println!("Received dump that pauses");
-        // } else {
-        //     println!("Received dump that continues");
-        // }
         let cpu = self.cpu();
-        // self.memory_tab.set_memory(cpu.memory.clone());
-        // if self.is_paused() {
-        //     self.debugger_tab.update(clone);
-        // }
-        // println!("  GUI reading memory: {}", cpu.memory.len());
+        //
+        // Draw commands
+        //
         self.draw_commands = self.hires_screen.get_draw_commands(
             &cpu.memory, &cpu.aux_memory, self.config_file.magnification());
         // self.cache.clear();
         if !self.draw_commands.is_empty() {
             send_message!(&self.sender_minifb, ToMiniFb::Buffer(self.draw_commands.clone()));
         }
-        // println!("Read {} draw commands", self.draw_commands.len());
-        // self.cache.clear();
 
-        // let se = Shared::get_speaker_events();
-        // println!("========== New speaker events");
-        // let b = ! se.is_empty();
-        // for e in se {
-        //     println!("{}", e.timestamp);
-        // }
-        // if b {
-        //     println!("Got events");
-        // }
+        //
+        // Controller
+        //
+        // self.joystick.main_loop();
+
+        //
+        // Speaker
+        //
         let cycles: Vec<u64> = Shared::get_speaker_events().iter().map(|e| e.cycle).collect();
         if ! cycles.is_empty() {
             let samples = self.samples.cycles_to_samples(cycles, SAMPLE_RATE);
@@ -114,6 +152,16 @@ impl MainWindow {
                 Shared::add_sound_sample(s);
             }
         }
+
+        //
+        // Speaker decay
+        //
+        // if let Some((i, s)) = Shared::get_last_sample_played() {
+        //     if f32::abs(s) > 0.01 && i.elapsed().as_millis() > 250 {
+        //         speaker_decay(s);
+        //         Shared::set_last_sample_played(None);
+        //     }
+        // }
     }
 
     fn cpu(&self) -> CpuDumpMsg {
@@ -151,6 +199,7 @@ impl Window for MainWindow {
             .push(TabId::DisksTab, self.disks_tab.tab_label(), self.disks_tab.view())
             .push(TabId::NibblesTab, self.nibbles_tab.tab_label(), self.nibbles_tab.view())
             .push(TabId::DriveTab, self.drive_tab.tab_label(), self.drive_tab.view())
+            .push(TabId::DebugTab, self.debug_tab.tab_label(), self.debug_tab.view())
             .set_active_tab(&self.active_tab)
             .height(Length::Fill)
             .into();

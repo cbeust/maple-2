@@ -14,6 +14,7 @@ use crate::messages::ToUi;
 use crate::messages::ToUi::RgbModeUpdate;
 use crate::roms::{DISK2_ROM, Roms, RomType, SMARTPORT_ROM};
 use crate::{send_message};
+use crate::joystick::Joystick;
 use crate::smartport::SmartPort;
 use crate::ui::iced::shared::{Shared, SpeakerEvent};
 
@@ -533,6 +534,23 @@ impl Apple2Memory {
                     self.dhg_iou_disabled = false;
                 }
             }
+            0xc061 => {
+                result = Some(if Shared::get_controller_button_value(0) { 0x80 } else { 0 });
+            }
+            0xc062 => {
+                result = Some(if Shared::get_controller_button_value(1) { 0x80 } else { 0 });
+            }
+            0xc064 => {
+                // println!("Querying C064 at cycle {}", *CYCLES.read().unwrap());
+                result = Some(Shared::get_controller_value(0, *CYCLES.read().unwrap()))
+            }
+            0xc065 => {
+                // println!("Querying C065 at cycle {}", *CYCLES.read().unwrap());
+                result = Some(Shared::get_controller_value(1, *CYCLES.read().unwrap()))
+            }
+            0xc070 => {
+                Shared::reset_joystick(*CYCLES.read().unwrap());
+            }
             _ => {
                 if self.disk_controller.accept(address) {
                     let value = self.disk_controller.get_or_set(read, address, value, &self.sender);
@@ -548,6 +566,10 @@ impl Apple2Memory {
                     if is_set!(self, READ_AUX_MEM_STATUS) { AUX } else { MAIN }
                 } else { MAIN };
                 result = Some(self.memories[index][address as usize]);
+                if address == 0xc064 || address == 0xc06c {
+                    alog(&format!("{address:04X} returning {:02X}", result.unwrap()));
+                    println!("");
+                }
             } else if (0x200..0xc000).contains(&address) {
                 let index = if is_set!(self, WRITE_AUX_MEM_STATUS) { AUX } else { MAIN };
                 self.memories[index][address as usize] = value;

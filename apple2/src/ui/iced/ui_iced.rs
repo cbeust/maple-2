@@ -32,6 +32,7 @@ pub enum TabId {
     DisksTab,
     NibblesTab,
     DriveTab,
+    DebugTab,
 }
 
 pub fn main_iced(sender: Option<Sender<ToCpu>>,
@@ -158,18 +159,15 @@ impl EmulatorApp {
 
         match message {
             SpecialKey(key, pressed) => {
-                let address = match key {
-                    SpecialKeyMsg::AltLeft => { 0xc061 }
-                    SpecialKeyMsg::AltRight => { 0xc062 }
-                    _ => { 0 }
-                };
-                if address != 0 {
-                    send_message!(&self.sender, SetMemory(SetMemoryMsg {
-                        address,
-                        bytes: vec![if pressed { 0x80 } else { 0 }],
-                }));
-
+                match key {
+                    SpecialKeyMsg::AltLeft => {
+                        Shared::set_controller_button_value(0, pressed);
+                    }
+                    SpecialKeyMsg::AltRight => {
+                        Shared::set_controller_button_value(1, pressed);
                 }
+                    _ => {}
+                };
             }
             Key(key) => {
                 for i in 0..16 {
