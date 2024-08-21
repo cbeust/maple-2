@@ -20,7 +20,7 @@ use crate::disk::drive::DriveStatus;
 use crate::joystick::Joystick;
 use crate::messages::{CpuDumpMsg, DrawCommand, SetMemoryMsg, ToCpu, ToMiniFb};
 use crate::send_message;
-use crate::speaker::{speaker_decay, Samples};
+use crate::speaker::Samples;
 use crate::ui::hires_screen::{AColor, HiresScreen};
 use crate::ui::iced::debug_tab::DebugTab;
 use crate::ui::iced::disk_tab::DriveTab;
@@ -199,7 +199,7 @@ impl Window for MainWindow {
             .push(TabId::DisksTab, self.disks_tab.tab_label(), self.disks_tab.view())
             .push(TabId::NibblesTab, self.nibbles_tab.tab_label(), self.nibbles_tab.view())
             .push(TabId::DriveTab, self.drive_tab.tab_label(), self.drive_tab.view())
-            .push(TabId::DebugTab, self.debug_tab.tab_label(), self.debug_tab.view())
+            // .push(TabId::DebugTab, self.debug_tab.tab_label(), self.debug_tab.view())
             .set_active_tab(&self.active_tab)
             .height(Length::Fill)
             .into();

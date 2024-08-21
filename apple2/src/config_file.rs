@@ -2,13 +2,14 @@ use std::collections::HashSet;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
+
 use serde::{Deserialize, Serialize};
+
 use cpu::constants::DEFAULT_EMULATOR_SPEED_HZ;
+
 use crate::constants::{DEFAULT_DISKS_DIRECTORIES, DEFAULT_MAGNIFICATION, DEFAULT_SPEED_HZ};
 use crate::roms::RomType;
-// use crate::ui::ui_egui::{MainTab};
 use crate::ui_log;
 
 /// Name of the config file, which is saved under whatever dirs::config_dir() returns

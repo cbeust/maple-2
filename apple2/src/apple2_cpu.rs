@@ -15,7 +15,7 @@ use crate::misc::increase_cycles;
 use crate::rolling_times::RollingTimes;
 use crate::{configure_log, send_message, ui_log};
 use crate::config_file::ConfigFile;
-use crate::constants::{CPU_REFRESH_MS, PC, START};
+use crate::constants::{CPU_REFRESH_MS, DIVIDER, PC, START};
 use crate::ui::iced::shared::Shared;
 
 #[derive(Clone, Debug, Default)]
@@ -333,7 +333,7 @@ impl AppleCpu {
             if status == CpuStateMsg::Running {
                 // Send CPU speed update
                 if self.last_speed_sent.elapsed().as_millis() > 1000 {
-                    send_message!(&self.sender, EmulatorSpeed(self.rolling_times.average()));
+                    send_message!(&self.sender, EmulatorSpeed(self.rolling_times.average() / DIVIDER));
                     self.last_speed_sent = Instant::now();
                 }
 

@@ -194,7 +194,7 @@ https://github.com/cbeust/sixty.rs/assets/92322/db46d0e5-5c16-4dad-8a27-4290a411
 ## Developer note
 
 I made the graphical back-end as agnostic as I could since there are so many Rust crates that let you display
-pixels on the screen, and as a proof of concept, I experimented with two different graphical backends: `egui` (which
+pixels on the screen, and as a proof of concept, I experimented with two different graphical backends: `iced` (which
 is the current `Maple //` GUI/graphics library) and `minifb`). Here is what the experiment looks like:
 
 https://github.com/cbeust/sixty.rs/assets/92322/499b9f47-600c-4ce7-85b7-c373e18b427e

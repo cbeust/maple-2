@@ -104,19 +104,7 @@ use crate::messages::ToCpu::FileModified;
 use crate::speaker::{play_file_rodio, Speaker, Speaker2};
 use crate::ui::iced::message::InternalUiMessage;
 use crate::ui::iced::shared::Shared;
-// use crate::ui::ui_egui::{MyEguiApp};
-use crate::ui::iced::ui_iced::main_iced;
-
-// pub fn is_text_hole(address: u16) -> bool {
-//         (address >= 0x478 && address <= 0x47f) ||
-//         (address >= 0x4f8 && address <= 0x4ff) ||
-//         (address >= 0x578 && address <= 0x57f) ||
-//         (address >= 0x5f8 && address <= 0x5ff) ||
-//         (address >= 0x678 && address <= 0x67f) ||
-//         (address >= 0x6f8 && address <= 0x6ff) ||
-//         (address >= 0x778 && address <= 0x77f) ||
-//         (address >= 0x7f8 && address <= 0x7ff)
-// }
+use crate::ui::iced::ui_iced::{main_iced};
 
 fn configure_tracing() {
     // A layer that logs events to a file, using the JSON format.

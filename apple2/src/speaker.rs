@@ -8,7 +8,7 @@ use rodio::{OutputStream, Sink, Source};
 use rodio::source::SineWave;
 use splines::{Interpolation, Key, Spline};
 
-use crate::constants::{SAMPLE_RATE, START};
+use crate::constants::SAMPLE_RATE;
 use crate::ui::iced::shared::Shared;
 
 pub struct Speaker2 {
@@ -164,7 +164,7 @@ impl Samples {
 }
 
 /// We want to go from s to 0.0 smoothly
-pub fn speaker_decay(s: f32) {
+pub fn decay(s: f32) {
     let rate = 100.0;
     let increment = -s / rate;
     let mut decay = s;
@@ -266,12 +266,11 @@ pub fn play_file_rodio(path: &str) {
 struct AStream {
     last_sample: f32,
     last_sample_time: Instant,
-    volume: f32,
 }
 
 impl Default for AStream {
     fn default() -> Self {
-        Self { last_sample: 0.0, last_sample_time: Instant::now(), volume: 1.0 }
+        Self { last_sample: 0.0, last_sample_time: Instant::now() }
     }
 }
 
@@ -297,15 +296,6 @@ impl Iterator for AStream {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((i, s)) = Shared::get_last_sample_played() {
-            if (f32::abs(s) > 0.01 && i.elapsed().as_millis() > 250) || self.volume < 1.0{
-                // self.volume /= 2.0;
-                // println!("SILENCE, volume is {}", self.volume);
-                // speaker_decay(s);
-                // Shared::set_last_sample_played(None);
-            }
-        }
-
         // println!(" RETURNING NEXT");
         match Shared::get_next_sound_sample_maybe() {
             None => {
@@ -314,9 +304,8 @@ impl Iterator for AStream {
             Some(s) => {
                 self.last_sample_time = Instant::now();
                 if s != 0.0 {
-                    let s2 = s * self.volume;
-                    self.last_sample = s2;
-                    Shared::set_last_sample_played(Some((Instant::now(), s2)));
+                    self.last_sample = s;
+                    Shared::set_last_sample_played(Some((Instant::now(), s)));
                 }
                 Some(s)
             }
