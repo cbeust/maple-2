@@ -270,9 +270,11 @@ impl Window for MainWindow {
                 self.selected_drive = drive;
             }
             ShowDrives => {
+                self.config_file.set_show_hard_drive(false);
                 Shared::set_show_drives(true);
             }
             ShowHardDrives => {
+                self.config_file.set_show_hard_drive(true);
                 Shared::set_show_drives(false);
             }
             Eject(is_hard_drive, drive_number) => {

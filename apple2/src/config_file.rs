@@ -44,6 +44,9 @@ pub struct ConfigFile {
     #[serde(skip)]
     pub(crate) breakpoints_hash: HashSet<u16>,
     rom_type: Option<RomType>,
+
+    /// If true, show hard drives, if false, show drives
+    pub(crate) show_hard_drive: bool,
 }
 
 impl Default for ConfigFile {
@@ -60,6 +63,7 @@ impl Default for ConfigFile {
             breakpoints: Vec::new(),
             breakpoints_hash: HashSet::new(),
             rom_type: Some(RomType::Apple2Enhanced),
+            show_hard_drive: false,
         }
     }
 }
@@ -232,6 +236,7 @@ impl ConfigFile {
                     breakpoints: Vec::new(),
                     breakpoints_hash: HashSet::new(),
                     rom_type: Some(RomType::Apple2Enhanced),
+                    show_hard_drive: false,
                 };
                 user_config.save();
             }
@@ -239,4 +244,10 @@ impl ConfigFile {
             ui_log("Config directory doesn't seem to exist, not saving settings");
         }
     }
+
+    pub(crate) fn set_show_hard_drive(&mut self, b: bool) {
+        self.show_hard_drive = b;
+        self.save();
+    }
+
 }

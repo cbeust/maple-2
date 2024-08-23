@@ -2,7 +2,7 @@ use std::fs;
 use std::sync::RwLock;
 use std::time::Instant;
 use crossbeam::channel::Sender;
-use tracing::{event, Level};
+use tracing::{event, info, Level};
 pub use cpu::memory::{Memory, DefaultMemory};
 use crate::alog::alog;
 use crate::constants::{CYCLES, PC, START};
@@ -217,7 +217,7 @@ impl Apple2Memory {
     }
 
     fn log_mem(&self, address: u16, s: &str) {
-        log::info!("  {} | {}", s,
+        info!("  {} | {}", s,
             &format!("{:04X} read_enabled:{}, write_enabled:{}, bank:{}, prewrite:{}, alt_zp:{}",
                 address,
                 self.read_enabled, self.write_enabled,

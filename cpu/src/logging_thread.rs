@@ -1,5 +1,6 @@
 use std::time::SystemTime;
 use crossbeam::channel::{Receiver, Sender};
+use tracing::info;
 use crate::config::Config;
 use crate::constants::OPERANDS_6502;
 use crate::disassembly::{Disassemble, RunDisassemblyLine};
@@ -77,9 +78,9 @@ impl Logging {
         // println!("{}", d.to_csv());
 
         if self.config.trace_to_file && self.config.csv {
-            log::info!("{}", d.to_csv());
+            info!("{}", d.to_csv());
         } else {
-            log::info!("{} {} {:?}", d.to_log(), p, stack);
+            info!("{} {} {:?}", d.to_log(), p, stack);
         }
     }
 }

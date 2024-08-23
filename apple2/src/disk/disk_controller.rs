@@ -2,7 +2,6 @@ use std::{fs};
 use std::ops::{BitXor};
 use crossbeam::channel::Sender;
 use crate::disk::bit_stream::{Nibble};
-use crate::constants::{HOLD, NibbleStrategy::*, NIBBLE_STRATEGY};
 use crate::cycle_actions::{Actions, UpdatePhaseAction};
 use crate::cycle_actions::CycleAction::{UpdatePhase};
 use crate::disk::disk::{Disk};
@@ -233,53 +232,11 @@ impl DiskController {
             self.execute_actions();
         }
 
-            match NIBBLE_STRATEGY {
-            Lss => {
-                /// TODO: should take into account whether the motor is on and not pass true
-                /// but it needs to be delayed or Sherwood Forest won't boot
-                self.lss.on_pulse(self.q6, self.q7, true, &mut self.drives[self.drive_index]);
-                self.latch = self.lss.latch;
-                self.clock = self.clock.wrapping_add(1);
-            }
-            Bits => {
-                if self.is_motor_on() {
-                    if (self.clock % 8) == 0 {
-                        let new_bit = self.next_bit_with_window();
-                        if (self.latch & 0x80) > 0 { // qa is set
-                            if new_bit == 0 && self.next_qa == 0 {
-                                // do nothing, this is how we sync
-                            } else if new_bit == 1 && self.next_qa == 0 {
-                                self.next_qa = 1;
-                            } else if self.next_qa == 1 {
-                                self.latch = 2 | new_bit;
-                                self.next_qa = 0;
-                            }
-                        } else {
-                            // qa not set
-                            self.latch = (self.latch << 1) | new_bit;
-                            // println!("Clock: {}, shifting bit: {} latch: {:02X}", self.clock, new_bit, self.latch)
-                        }
-                    }
-                    self.clock = self.clock.wrapping_add(1);
-                    #[cfg(feature = "log_disk")]
-                    log::info!("@@ clock={} bitPosition={} latch={:02X}", self.clock,
-                        self.current_bit_position(), self.latch);
-                }
-            }
-            Bytes => {
-                if self.is_motor_on() {
-                    if self.hold > 0 {
-                        // println!("Holding byte {:02X} for {} more", self.latch, self.hold);
-                        self.hold -= 1;
-                    } else {
-                        // println!("Missed byte {:02X}", self.latch);
-                        // missed byte
-                        self.latch = self.next_byte();
-                        self.hold = HOLD;
-                    }
-                }
-            }
-        }
+        /// TODO: should take into account whether the motor is on and not pass true
+        /// but it needs to be delayed or Sherwood Forest won't boot
+        self.lss.on_pulse(self.q6, self.q7, true, &mut self.drives[self.drive_index]);
+        self.latch = self.lss.latch;
+        self.clock = self.clock.wrapping_add(1);
     }
 
     fn set_current_bit_position(&mut self, position: usize) {
@@ -377,9 +334,6 @@ impl DiskController {
                     // Fill the latch
                     if (result & 0x80) > 0 {
                         self.sector_read.read_byte(drive_index, result, &self.sender);
-                        if NIBBLE_STRATEGY != Bits {
-                            self.latch = 0;
-                        }
                     }
                     self.previous_write_clock = 0;
                     result

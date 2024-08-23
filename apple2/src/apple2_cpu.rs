@@ -4,7 +4,6 @@ use std::io::Write;
 use std::sync::{Arc, Mutex, RwLock};
 use crossbeam::channel::{Receiver, Sender};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use log4rs::Handle;
 use cpu::config::Config;
 use cpu::cpu::{Cpu, RunStatus, StopReason};
 use cpu::memory::Memory;
@@ -13,7 +12,7 @@ use crate::messages::{CpuDumpMsg, CpuStateMsg, ToCpu, ToUi};
 use crate::messages::ToUi::{EmulatorSpeed};
 use crate::misc::increase_cycles;
 use crate::rolling_times::RollingTimes;
-use crate::{configure_log, send_message, ui_log};
+use crate::{send_message, ui_log};
 use crate::config_file::ConfigFile;
 use crate::constants::{CPU_REFRESH_MS, DIVIDER, PC, START};
 use crate::ui::iced::shared::Shared;
@@ -63,14 +62,14 @@ pub struct AppleCpu {
     cycles: u128,
     start: Instant,
     started: bool,
-    handle: Option<Handle>,
+    // handle: Option<Handle>,
     previous_slice_start: u128,
 }
 
 impl AppleCpu {
     pub fn new(cpu: Cpu<Apple2Memory>, config: Box<EmulatorConfigMsg>,
         sender: Option<Sender<ToUi>>,
-            receiver: Option<Receiver<ToCpu>>, handle: Option<Handle>) -> Self {
+            receiver: Option<Receiver<ToCpu>>) -> Self {
         Self { cpu, sender, receiver,
             last_memory_sent: Instant::now(),
             last_cpu_run: Instant::now(),
@@ -82,7 +81,6 @@ impl AppleCpu {
             start: Instant::now(),
             started: false,
             config,
-            handle,
             previous_slice_start: START.get().unwrap().elapsed().as_millis(),
         }
     }
@@ -269,12 +267,12 @@ impl AppleCpu {
                                 if let Some(trace_file_asm) = trace_status.trace_file_asm {
                                     config.trace_file_asm = trace_file_asm;
                                 }
-                                match &self.handle {
-                                    None => {}
-                                    Some(h) => {
-                                        h.set_config(configure_log(config, remove));
-                                    }
-                                }
+                                // match &self.handle {
+                                //     None => {}
+                                //     Some(h) => {
+                                //         h.set_config(configure_log(config, remove));
+                                //     }
+                                // }
                             }
                             GenerateDisassembly(d) => {
                                 d.generate(&self.cpu.memory.memories[0], &self.cpu.operands);

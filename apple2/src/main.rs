@@ -63,33 +63,23 @@ use crossbeam::channel::{Receiver, Sender, unbounded};
 use std::{fs, io, thread};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::io::{stdout};
+use std::path::{Path};
 use std::process::exit;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Mutex, RwLock};
 use std::time::{Duration, Instant};
 use cpu::cpu::Cpu;
 use cpu::memory::Memory;
 use messages::ToUi;
 use clap::Parser;
-use gilrs::{Axis, Button, Event, Gilrs};
-use gilrs::ev::state::AxisData;
-use log4rs::append::Append;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Root};
-use log4rs::encode::pattern::PatternEncoder;
-use log4rs::Handle;
-use log::{LevelFilter, warn};
+use gilrs::{Axis, Event, Gilrs};
 use notify::{RecursiveMode};
 use notify_debouncer_mini::{DebouncedEventKind, new_debouncer};
-use serde::{Serialize};
-use tracing::{debug, Dispatch, event, info, Level, span};
-use tracing::instrument::WithSubscriber;
-use tracing_subscriber::{EnvFilter, fmt, Registry};
-use tracing_subscriber::fmt::{format, Subscriber};
+use tracing::{debug, error, event, info, Level, span, warn};
+use tracing_subscriber::{EnvFilter, fmt, Registry, registry};
+use tracing_subscriber::fmt::{format, Layer, MakeWriter, Subscriber};
+use tracing_subscriber::fmt::format::{Compact, DefaultFields, Format};
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 use cpu::config::{Config};
 use cpu::logging_thread::Logging;
 use crate::apple2_cpu::{AppleCpu, EmulatorConfigMsg};
@@ -106,28 +96,23 @@ use crate::ui::iced::message::InternalUiMessage;
 use crate::ui::iced::shared::Shared;
 use crate::ui::iced::ui_iced::{main_iced};
 
-fn configure_tracing() {
-    // A layer that logs events to a file, using the JSON format.
-    let file = File::create("c:\\t\\speaker.txt").unwrap();
-    let file_log = fmt::layer()
+fn configure_tracing(to_file: bool) {
+    // A layer that logs events to a file
+    let l = fmt::layer()
         .with_ansi(false)
         .without_time()
         .with_level(false)       // include levels in the output
         .with_target(false)     // don't include event targets
-        .with_thread_ids(false)  // include thread IDs
-        .compact()             // use the compact format
-        .with_writer(Arc::new(file));
-
-    let subscriber = Registry::default()
-        .with(file_log)
-    ;
-    tracing::subscriber::set_global_default(subscriber);
-
-    // let _span = span!(Level::ERROR, "sound");
-    // let enter = _span.enter();
-    // event!(Level::DEBUG, answer = 42, "this is debug");
-    // debug!("This is the debug macro");
+        .with_thread_ids(false)
+        .compact();
+    if to_file {
+        let file = File::create("c:\\t\\trace.txt").unwrap();
+        tracing::subscriber::set_global_default(registry().with(l.with_writer(file))).unwrap();
+    } else {
+        tracing::subscriber::set_global_default(registry().with(l.with_writer(stdout))).unwrap();
+    };
 }
+
 fn main() {
     // START.set(Instant::now()).unwrap();
     start();
@@ -142,62 +127,6 @@ struct Args {
     #[arg(short, long)]
     dir: Option<String>,
 }
-
-pub fn configure_log(config: &Config, remove: bool) -> log4rs::Config {
-    let file_name = if config.csv {
-        &config.trace_file_csv
-    } else {
-        &config.trace_file_asm
-    };
-    if config.trace_to_file {
-        println!("Log to file enabled: {}", file_name);
-    }
-    if remove && Path::new(&file_name).exists() {
-        fs::remove_file(file_name).unwrap();
-    }
-
-    let (appender_name, appender) : (&str, Box<dyn Append>) =
-        if config.trace_to_file {
-            println!("Tracing to file {}", file_name);
-            let appender = FileAppender::builder()
-                .encoder(Box::new(PatternEncoder::new("{m}\n")))
-                .build(&file_name).unwrap();
-            ("logfile", Box::new(appender))
-        } else {
-            if config.debug_asm {
-            println!("Tracing to stdout");
-            }
-            // https://docs.rs/log4rs/1.0.0/log4rs/encode/pattern/index.html#formatters
-            let appender = ConsoleAppender::builder()
-                .encoder(Box::new(PatternEncoder::new("{m}\n")))
-                // .encoder(Box::new(PatternEncoder::new("{d(%H:%M:%SS)}: {m}\n")))
-                .build();
-            ("stdout", Box::new(appender))
-        };
-
-    log4rs::Config::builder()
-        .appender(Appender::builder().build(appender_name, appender))
-        .build(Root::builder()
-            .appender(appender_name)
-            .build(LevelFilter::Error))
-        .unwrap()
-}
-
-// fn configure_log() -> log4rs::Config {
-//     println!("Log to stdout is enabled");
-//
-//     let stdout = ConsoleAppender::builder()
-//         // .encoder(Box::new(PatternEncoder::new("{disk(%f)} - {m}\n")))
-//         .encoder(Box::new(PatternEncoder::new("{m}\n")))
-//         .build();
-//
-//     log4rs::Config::builder()
-//         .appender(Appender::builder().build("stdout", Box::new(stdout)))
-//         .build(Root::builder()
-//             .appender("stdout")
-//             .build(LevelFilter::Info))
-//         .unwrap()
-// }
 
 fn t() {
     match disk::dsk_to_woz::dsk_to_woz("d:\\Apple disks\\Apple DOS 3.3.dsk") {
@@ -249,7 +178,6 @@ fn controller() {
 fn start() {
     // controller();
 
-    configure_tracing();
 
     let config_file = ConfigFile::new();
     let mut config = Config {
@@ -265,14 +193,16 @@ fn start() {
         config.watched_files.push(wf.clone());
     }
 
-    let logger_config = configure_log(&config, true /* remove */);
-    let handle = log4rs::init_config(logger_config).unwrap();
+    // let logger_config = configure_log(&config, true /* remove */);
+    // let handle = log4rs::init_config(logger_config).unwrap();
 
     START.set(Instant::now()).unwrap();
 
+    configure_tracing(config.trace_to_file);
+
     warn!("This is a warning");
-    log::info!("[Info] Logging");
-    log::debug!("[Debug] Logging");
+    info!("[Info] Logging");
+    debug!("[Debug] Logging");
 
     // if true {
     if false {
@@ -321,7 +251,7 @@ fn start() {
     if benchmark {
         let mut apple2 = create_apple2(
             Some(sender), Some(logging_sender),
-            Some(receiver2), disks, Box::new(emulator_config.clone()), None);
+            Some(receiver2), disks, Box::new(emulator_config.clone()));
         apple2.cpu.run();
     } else {
         let sender4 = sender2.clone();
@@ -363,7 +293,7 @@ fn start() {
                 };
                 let mut apple2 = create_apple2(Some(sender.clone()),
                     Some(logging_sender.clone()),
-                    Some(receiver2.clone()), disks.clone(), Box::new(ecm), Some(handle.clone()));
+                    Some(receiver2.clone()), disks.clone(), Box::new(ecm));
                 // if audit {
                 //     apple2.cpu.cpu.memory.load_file("/Users/Ced/rust/a2audit/audit/audit.o", 0x6000, 0, 0, true);
                 //     apple2.cpu.cpu.pc = 0x6000;
@@ -429,10 +359,10 @@ fn start() {
                                     DebouncedEventKind::AnyContinuous => { println!("Any event") }
                                     _ => { println!("Unknownn event"); }
                                 }
-                                log::info!("Change: {event:?}")
+                                info!("Change: {event:?}")
                             }
                         },
-                        Err(error) => log::error!("Error: {error:?}"),
+                        Err(error) => error!("Error: {error:?}"),
                     }
                 }
             });
@@ -463,8 +393,7 @@ pub(crate) fn create_apple2(
     logging_sender: Option<Sender<ToLogging>>,
     receiver: Option<Receiver<ToCpu>>,
     disk_infos: [Option<DiskInfo>; 2],
-    config: Box<EmulatorConfigMsg>,
-    handle: Option<Handle>)
+    config: Box<EmulatorConfigMsg>)
 -> Apple2
 {
     let di0 = config.config_file.hard_drive_1().map(|s| DiskInfo::n(&s));
@@ -475,7 +404,7 @@ pub(crate) fn create_apple2(
     m.load_roms(config.config_file.rom_type());
 
     let mut cpu = AppleCpu::new(Cpu::new(m, logging_sender, config.config.clone()),
-        config.clone(), sender.clone(), receiver, handle);
+        config.clone(), sender.clone(), receiver);
     cpu.cpu.pc = cpu.cpu.memory.word(0xfffc);
     send_message!(sender, ToUi::Config(config.clone()));
     Apple2 { cpu }

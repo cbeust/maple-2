@@ -50,14 +50,10 @@ pub const FLASH_FREQUENCY_HZ: u8 = 4;
 
 /// Magnification of the screen
 pub(crate) const DEFAULT_MAGNIFICATION: u16 = 4;
+
+/// Emulator speed
 pub(crate) const DEFAULT_SPEED_HZ: u64 = 1_740_000;
 pub(crate) const DIVIDER: f32 = 1.7;
-
-/// Disk controller: read bytes, bits, or use the LSS
-#[derive(PartialEq)]
-pub(crate) enum NibbleStrategy { Bytes, Bits, Lss }
-pub(crate) const NIBBLE_STRATEGY: NibbleStrategy = NibbleStrategy::Lss;
-pub(crate) const HOLD: u16 = 81;
 
 /// Sound
 pub const SAMPLE_RATE: u32 = 48_000;

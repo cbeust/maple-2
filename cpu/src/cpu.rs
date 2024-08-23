@@ -28,6 +28,7 @@ use std::ops::ControlFlow::Break;
 use std::process::exit;
 use std::time::Instant;
 use crossbeam::channel::Sender;
+use tracing::info;
 use crate::addressing_type::AddressingType;
 use crate::config::Config;
 use crate::constants;
@@ -792,9 +793,9 @@ impl <T: Memory> Cpu<T> {
                     }
                 } else {
                     if config.trace_to_file && config.csv {
-                        log::info!("{}", d.to_csv());
+                        info!("{}", d.to_csv());
                     } else {
-                        log::info!("{}", d.to_log());
+                        info!("{}", d.to_log());
                     }
                 }
             }

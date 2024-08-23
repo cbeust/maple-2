@@ -990,9 +990,10 @@ version = "0.1.0"
 dependencies = [
  "crossbeam",
  "lazy_static",
- "log",
  "once_cell",
  "regex",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2660,8 +2661,6 @@ dependencies = [
  "ignore",
  "itertools 0.13.0",
  "lazy_static",
- "log",
- "log4rs",
  "minifb",
  "notify",
  "notify-debouncer-mini",
