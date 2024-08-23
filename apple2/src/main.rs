@@ -180,6 +180,8 @@ fn start() {
 
 
     let config_file = ConfigFile::new();
+    Shared::set_show_drives(! config_file.show_hard_drive);
+
     let mut config = Config {
         emulator_speed_hz: config_file.emulator_speed_hz(),
         ..Default::default()
@@ -289,7 +291,7 @@ fn start() {
             while state != CpuStateMsg::Exit { // running != CpuStateMsg::Paused {
                 let ecm = EmulatorConfigMsg {
                     config: config4.clone(),
-                    config_file: ConfigFile::new(),
+                    config_file: config_file.clone(),
                 };
                 let mut apple2 = create_apple2(Some(sender.clone()),
                     Some(logging_sender.clone()),
