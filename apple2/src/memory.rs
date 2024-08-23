@@ -456,9 +456,6 @@ impl Apple2Memory {
                         result = Some(r);
                     }
                 } else {
-                    if address == 0xd17b && value == 0x22 {
-                        alog(&format!("Writing to D17B: {:02X}", value));
-                    }
                     // write
                     if self.write_enabled {
                         // Write value in the LC
