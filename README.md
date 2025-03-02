@@ -170,15 +170,10 @@ It's a great way to visualize copy protections in action. For a regular, unprote
 only see white dots. As soon as you see orange (half tracks) or red (quarter tracks) show up on this graph, it
 means you are dealing with a protected disk.
 
-## Tests
+## Klaus Gunctional Tests
 
 `cargo test` will run [Klaus' functional suite for the 6502](https://github.com/Klaus2m5/6502_65C02_functional_tests), which guarantees that the emulation is "mostly"
-correct. Additionally, my Kotlin emulator boots a few Apple ][ games that use precise cycle timing for their protection,
-so I'm reasonably confident the cycle counting is correct as well, including the handling of page crossing and
-"branch taken", but there are no tests for cycle counting.
-
-This code is pretty rigid right now, it needs to add some kind of listener support for the memory reads and
-writes in order to be usable in an emulator, but this should be pretty trivial to add.
+correct.
 
 ## Harte's processor tests
 
