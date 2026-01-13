@@ -170,7 +170,7 @@ It's a great way to visualize copy protections in action. For a regular, unprote
 only see white dots. As soon as you see orange (half tracks) or red (quarter tracks) show up on this graph, it
 means you are dealing with a protected disk.
 
-## Klaus Gunctional Tests
+## Klaus Functional Tests
 
 `cargo test` will run [Klaus' functional suite for the 6502](https://github.com/Klaus2m5/6502_65C02_functional_tests), which guarantees that the emulation is "mostly"
 correct.
