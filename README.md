@@ -177,14 +177,26 @@ correct.
 
 ## Harte's processor tests
 
-The `harte/` directory contains a TUI runner for Tom Harte's 6502 tests:
+The `harte/` directory contains two graphical runners for the Single Step Tests.
+
+One is a TUI:
 
 ```
 cd harte
-cargo run --release
+cargo run -r -- --tui
 ```
 
 https://github.com/user-attachments/assets/9bd0b8c2-50a3-44b8-99c7-10275ad192cd
+
+The other is a GUI:
+
+```
+cargo run -r -- --gui
+```
+
+https://github.com/user-attachments/assets/0a6ad061-2547-4ad0-b2ed-cb1e7964fdec
+
+
 
 ## Developer note
 
