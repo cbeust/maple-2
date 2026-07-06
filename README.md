@@ -194,8 +194,7 @@ The other is a GUI:
 cargo run -r -- --gui
 ```
 
-https://github.com/user-attachments/assets/0a6ad061-2547-4ad0-b2ed-cb1e7964fdec
-
+https://github.com/user-attachments/assets/4ba00e7c-903f-4bd9-bd06-4a73be593be0
 
 
 ## Developer note
